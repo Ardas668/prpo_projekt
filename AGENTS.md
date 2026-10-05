@@ -48,3 +48,4 @@ Kompletní zadání, detailní funkční požadavky, obchodní pravidla, otevře
 * **Data:** Výhradně syntetická data. Nikdy do repozitáře nevkládat reálné osobní údaje, soukromá data ze stáží/práce ani produkční přihlašovací údaje.
 * **Tajemství a konfigurace:** Hesla, API klíče a spojení na databázi spravovat přes šablonu `.env.example` a environmentální proměnné, nikdy je necommitovat.
 * **Testy:** Každé klíčové obchodní pravidlo (nepřekročení kapacity, FIFO pořadník, neměnnost osvědčení, dohledatelnost zrušených přihlášek) musí mít automatizovaný test.
+* **Komunikace:** Odpovídat vždy maximálně stručně, přímočaře a věcně bez zbytečného textového balastu.
