@@ -109,6 +109,17 @@ Tato sekce průběžně zaznamenává všechna klíčová věcná a architektoni
 * **Rozhodnutí:** Realizovat **Variantu C – Kurzy vzdělávacího centra (Akademie Trutnov)**.
 * **Důsledky:** Zaměření na správu kurzů, termínů, lektorů, docházky, nepřekročitelných kapacit, FIFO pořadníku a certifikátů.
 
+#### ADR-002: Volba technologického stacku pro DEMO a realizaci
+* **Datum:** 2026-10-05
+* **Stav:** Schváleno
+* **Kontext:** Výběr programovacího jazyka a frameworku pro splnění požadavků PPRO.
+* **Rozhodnutí:** Realizovat projekt v jazyce **Python** ve variantě A: **FastAPI + SQLAlchemy 2.0 + Alembic + PostgreSQL + Docker Compose**.
+* **Důsledky:**
+  * Třívrstvá architektura: Prezentační vrstva (FastAPI routery, Pydantic schémata, Swagger UI), Byznys vrstva (Service třídy s doménovými pravidly), Datová vrstva (SQLAlchemy ORM + repozitáře).
+  * Verzované databázové migrace přes Alembic.
+  * Interaktivní dokumentace a demo rozhraní na `/docs` (Swagger UI).
+  * Běh kompletního systému (databáze + migrace + backend) zajištěn přes `docker compose up`.
+
 ---
 
-*(Další rozhodnutí ADR-002 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem před započetím implementace jednotlivých částí.)*
+*(Další rozhodnutí ADR-003 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem před započetím implementace jednotlivých částí.)*
