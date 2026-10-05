@@ -120,6 +120,18 @@ Tato sekce průběžně zaznamenává všechna klíčová věcná a architektoni
   * Interaktivní dokumentace a demo rozhraní na `/docs` (Swagger UI).
   * Běh kompletního systému (databáze + migrace + backend) zajištěn přes `docker compose up`.
 
+#### ADR-003: Vyřešení otevřených bodů klienta a návrh doménového modelu
+* **Datum:** 2026-10-05
+* **Stav:** Schváleno
+* **Kontext:** Zadání klienta obsahuje 5 otevřených bodů a neurčených procesních detailů. Bylo nutné stanovit jednoznačná pravidla před implementací.
+* **Rozhodnutí:**
+  1. *Podmínka dokončení kurzu:* Docházka studenta $\ge 70\ \%$ a současně schválení lektorem/administrátorem před vystavením osvědčení.
+  2. *Posun z FIFO pořadníku:* Automatický posun prvního náhradníka do stavu `CONFIRMED` při uvolnění kapacity, s auditním záznamem posunu.
+  3. *Souběh termínů téhož kurzu:* Student nesmí mít více než jednu aktivní přihlášku (`CONFIRMED` nebo `WAITING_LIST`) na stejný kurz současně (ochrana proti spekulativnímu blokování kapacit).
+  4. *Přihlášení po zahájení kurzu:* Standardně blokováno; povoleno pouze administrátorovi přes explicitní parametr s povinným uvedením důvodu výjimky.
+  5. *Rozpad hodin při střídání lektorů:* Využití vazební tabulky `TermLecturer` s explicitní evidencí odučených hodin (`taught_hours`) pro každého lektora v termínu.
+* **Důsledky:** Doménový model obsahuje 7 tabulek/entit: `Course`, `Term`, `Lecturer`, `TermLecturer` (M:N), `Student`, `Registration` (M:N), `Attendance` a `Certificate`.
+
 ---
 
-*(Další rozhodnutí ADR-003 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem před započetím implementace jednotlivých částí.)*
+*(Další rozhodnutí ADR-004 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem.)*
