@@ -100,6 +100,9 @@
           <h2>Termíny kurzů a stav kapacit</h2>
           <p>Řízení obsazenosti učeben, střídání lektorů a nepřekročitelných limitů</p>
         </div>
+        <button class="btn btn-secondary btn-sm" onclick="app.openNewTermModal()">
+          <span>+</span> Vytvořit nový termín
+        </button>
       </div>
       <div class="cards-grid" id="terms-grid">
         <!-- Generováno dynamicky -->
@@ -189,9 +192,17 @@
           <h2>Manažerské reporty Akademie Trutnov</h2>
           <p>Přehledy naplněnosti kapacit, odučených hodin lektorů a vícekurzových studentů</p>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="app.loadReports()">
-          Obnovit data
-        </button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="app.exportOccupancyCSV()">
+            Export obsazenosti (CSV)
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="app.exportLecturersCSV()">
+            Export lektorů (CSV)
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="app.loadReports()">
+            Obnovit data
+          </button>
+        </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
@@ -263,7 +274,10 @@
       <div class="modal-body">
         <form id="form-register" onsubmit="app.submitRegistration(event)">
           <div class="form-group">
-            <label class="form-label">Student</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="form-label" style="margin-bottom: 0;">Student</label>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;" onclick="app.openNewStudentModal()">+ Nový student</button>
+            </div>
             <select id="reg-student-id" class="form-control" required></select>
           </div>
           <div class="form-group">
@@ -326,6 +340,94 @@
           <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -1rem;">
             <button type="button" class="btn btn-secondary" onclick="app.closeModal('modal-course')">Zrušit</button>
             <button type="submit" class="btn btn-primary">Uložit kurz</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nový termín -->
+  <div class="modal-overlay" id="modal-term">
+    <div class="modal-box" style="max-width: 620px;">
+      <div class="modal-header">
+        <h3>Vytvořit nový termín kurzu</h3>
+        <button class="btn-close" onclick="app.closeModal('modal-term')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-term" onsubmit="app.submitNewTerm(event)">
+          <div class="form-group">
+            <label class="form-label">Vzdělávací kurz</label>
+            <select id="new-term-course-id" class="form-control" required></select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Datum zahájení (od)</label>
+              <input type="date" id="new-term-date-from" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Datum ukončení (do)</label>
+              <input type="date" id="new-term-date-to" class="form-control" required>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Místo / lokalita</label>
+              <input type="text" id="new-term-location" class="form-control" placeholder="Např. Trutnov - Centrum" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Učebna</label>
+              <input type="text" id="new-term-classroom" class="form-control" placeholder="Např. Učebna A1" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kapacita míst (striktní limit)</label>
+            <input type="number" id="new-term-capacity" class="form-control" min="1" max="100" value="10" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Přiřazení lektorů a rozpad hodin (střídání externistů)</label>
+            <div id="new-term-lecturers-list" style="display: flex; flex-direction: column; gap: 0.5rem; background: rgba(15, 23, 42, 0.4); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); max-height: 180px; overflow-y: auto;">
+              <!-- Dynamicky naplněné checkbox řádky -->
+            </div>
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -1rem;">
+            <button type="button" class="btn btn-secondary" onclick="app.closeModal('modal-term')">Zrušit</button>
+            <button type="submit" class="btn btn-primary">Uložit termín</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nový student -->
+  <div class="modal-overlay" id="modal-student">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Založit nového studenta</h3>
+        <button class="btn-close" onclick="app.closeModal('modal-student')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-student" onsubmit="app.submitNewStudent(event)">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Jméno</label>
+              <input type="text" id="new-student-first-name" class="form-control" placeholder="Např. Jan" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Příjmení</label>
+              <input type="text" id="new-student-last-name" class="form-control" placeholder="Např. Novák" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail</label>
+            <input type="email" id="new-student-email" class="form-control" placeholder="jan.novak@example.cz" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Telefon (volitelné)</label>
+            <input type="tel" id="new-student-phone" class="form-control" placeholder="+420 777 000 000">
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -1rem;">
+            <button type="button" class="btn btn-secondary" onclick="app.closeModal('modal-student')">Zrušit</button>
+            <button type="submit" class="btn btn-primary">Uložit studenta</button>
           </div>
         </form>
       </div>

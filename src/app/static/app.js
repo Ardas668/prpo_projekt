@@ -391,6 +391,110 @@ const app = {
     }
   },
 
+  // Nový termín
+  openNewTermModal() {
+    const courseSelect = document.getElementById('new-term-course-id');
+    courseSelect.innerHTML = this.data.courses.map(c => `
+      <option value="${c.id}">${c.name} (${c.hours_duration} hod., ${c.is_accredited ? 'Akreditovaný' : 'Neakreditovaný'})</option>
+    `).join('');
+
+    const lecList = document.getElementById('new-term-lecturers-list');
+    lecList.innerHTML = this.data.lecturers.map(l => `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; flex: 1;">
+          <input type="checkbox" class="term-lecturer-check" data-lecturer-id="${l.id}" onchange="document.getElementById('term-lec-hours-${l.id}').disabled = !this.checked">
+          <span><strong>${l.first_name} ${l.last_name}</strong> <small style="color: var(--text-dim);">(${l.email})</small></span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 0.35rem;">
+          <input type="number" id="term-lec-hours-${l.id}" class="form-control" style="width: 75px; padding: 0.25rem 0.5rem; font-size: 0.85rem;" min="1" value="20" disabled>
+          <span style="font-size: 0.8rem; color: var(--text-dim);">hod.</span>
+        </div>
+      </div>
+    `).join('');
+
+    // Nastavit výchozí datum (za 14 dní)
+    const dFrom = new Date();
+    dFrom.setDate(dFrom.getDate() + 14);
+    const dTo = new Date();
+    dTo.setDate(dTo.getDate() + 18);
+    document.getElementById('new-term-date-from').value = dFrom.toISOString().split('T')[0];
+    document.getElementById('new-term-date-to').value = dTo.toISOString().split('T')[0];
+
+    document.getElementById('modal-term').classList.add('open');
+  },
+
+  async submitNewTerm(event) {
+    event.preventDefault();
+    const courseId = parseInt(document.getElementById('new-term-course-id').value);
+    const dateFrom = document.getElementById('new-term-date-from').value;
+    const dateTo = document.getElementById('new-term-date-to').value;
+    const location = document.getElementById('new-term-location').value;
+    const classroom = document.getElementById('new-term-classroom').value;
+    const capacity = parseInt(document.getElementById('new-term-capacity').value);
+
+    const lecturers = [];
+    document.querySelectorAll('.term-lecturer-check:checked').forEach(cb => {
+      const lid = parseInt(cb.getAttribute('data-lecturer-id'));
+      const hours = parseInt(document.getElementById(`term-lec-hours-${lid}`).value) || 0;
+      lecturers.push({ lecturer_id: lid, taught_hours: hours });
+    });
+
+    const payload = {
+      course_id: courseId,
+      date_from: dateFrom,
+      date_to: dateTo,
+      location: location,
+      classroom: classroom,
+      capacity: capacity,
+      lecturers: lecturers
+    };
+
+    try {
+      await this.fetchJson(`${API_BASE}/terms`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      this.showToast('Nový termín byl úspěšně vytvořen.', 'success');
+      this.closeModal('modal-term');
+      await this.loadTerms();
+      this.populateTermDropdowns();
+      this.updateKPIs();
+    } catch (err) {
+      this.showToast('Chyba vytvoření termínu: ' + err.message, 'error');
+    }
+  },
+
+  // Nový student
+  openNewStudentModal() {
+    document.getElementById('modal-student').classList.add('open');
+  },
+
+  async submitNewStudent(event) {
+    event.preventDefault();
+    const payload = {
+      first_name: document.getElementById('new-student-first-name').value,
+      last_name: document.getElementById('new-student-last-name').value,
+      email: document.getElementById('new-student-email').value,
+      phone: document.getElementById('new-student-phone').value || null
+    };
+
+    try {
+      const newStudent = await this.fetchJson(`${API_BASE}/students`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      this.showToast(`Student ${newStudent.first_name} ${newStudent.last_name} byl úspěšně zaregistrován.`, 'success');
+      this.closeModal('modal-student');
+      await this.loadStudents();
+      this.populateStudentDropdown();
+      const sel = document.getElementById('reg-student-id');
+      if (sel) sel.value = newStudent.id;
+      this.updateKPIs();
+    } catch (err) {
+      this.showToast('Chyba registrace studenta: ' + err.message, 'error');
+    }
+  },
+
   // Záložka Docházka a Osvědčení
   async loadAttendanceView() {
     const tbody = document.getElementById('attendance-tbody');
@@ -559,6 +663,47 @@ const app = {
       }
     } catch (err) {
       this.showToast('Chyba načítání reportů: ' + err.message, 'error');
+    }
+  },
+
+  // CSV Exporty
+  downloadCSV(filename, csvContent) {
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  },
+
+  async exportOccupancyCSV() {
+    try {
+      const occ = await this.fetchJson(`${API_BASE}/reports/occupancy`);
+      let csv = 'Termín ID;Kurz;Lokalita;Kapacita;Potvrzeno (zapsáno);Čekající (FIFO);Obsazenost (%)\n';
+      occ.forEach(item => {
+        csv += `${item.term_id};"${item.course_name}";"${item.location}";${item.capacity};${item.confirmed_count};${item.waiting_count};${item.occupancy_percentage.toFixed(1)}\n`;
+      });
+      this.downloadCSV('akademie_trutnov_obsazenost_terminu.csv', csv);
+      this.showToast('CSV export obsazenosti byl stažen.', 'success');
+    } catch (err) {
+      this.showToast('Chyba při exportu: ' + err.message, 'error');
+    }
+  },
+
+  async exportLecturersCSV() {
+    try {
+      const lecs = await this.fetchJson(`${API_BASE}/reports/lecturer-hours`);
+      let csv = 'Lektor;E-mail;Počet termínů;Odučené hodiny celkem\n';
+      lecs.forEach(item => {
+        csv += `"${item.lecturer_name}";"${item.email}";${item.total_terms};${item.total_hours}\n`;
+      });
+      this.downloadCSV('akademie_trutnov_hodiny_lektoru.csv', csv);
+      this.showToast('CSV export hodin lektorů byl stažen.', 'success');
+    } catch (err) {
+      this.showToast('Chyba při exportu: ' + err.message, 'error');
     }
   },
 
