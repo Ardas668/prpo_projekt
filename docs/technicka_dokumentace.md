@@ -14,49 +14,20 @@ Informační systém **Akademie Trutnov** nahrazuje dosavadní ruční evidenci 
 1. **Katalog kurzů** – evidence rekvalifikačních a firemních kurzů (název, anotace, rozsah v hodinách, cena, akreditace).
 2. **Termíny kurzů a externí lektoři** – vypisování běhů v různých lokalitách a učebnách s proměnnou kapacitou, střídání více lektorů na jednom termínu s rozpadem odučených hodin a hlídáním časových kolizí.
 3. **Přihlášky, kapacita a FIFO pořadník** – samoobslužné přihlašování zájemců i správa administrátorem, striktní nepřekročitelnost kapacity, nepřeskakovatelný pořadník náhradníků, automatický posun při uvolnění místa a auditní uchování zrušených přihlášek.
-4. **Docházka a neměnná osvědčení** – evidence účasti po jednotlivých dnech, kontrola minimální docházky ($\ge 70\ \%$) a schválení lektorem, generování unikátního a zpětně neměnného evidenčního čísla (`TRU-YYYY-XXXX`).
+4. **Docházka a neměnná osvědčení** – evidence účasti po jednotlivých dnech, kontrola minimální docházky (≥ 70 %) a schválení lektorem, generování unikátního a zpětně neměnného evidenčního čísla (`TRU-YYYY-XXXX`).
 5. **Manažerské přehledy a role** – reporty obsazenosti termínů, odučených hodin lektorů, vícekurzových studentů (včetně CSV exportu pro Excel) a oddělení uživatelských rolí (*Návštěvník*, *Student*, *Lektor*, *Administrátor*).
 
 ---
 
 ## 2. Architektura systému
 
-Aplikace dodržuje **třívrstvou architekturu s jednosměrnými závislostmi** (*Prezentační vrstva → Byznys / Aplikační vrstva → Datová vrstva*). Každá vrstva má jasně vymezenou odpovědnost a nesmí obcházet vrstvu pod sebou.
+Aplikace dodržuje **třívrstvou architekturu s jednosměrnými závislostmi** (*Prezentační vrstva → Byznys / Aplikační vrstva → Datová vrstva*). Každá vrstva má jasně vymezenou odpovědnost a nesmí obcházet vrstvu pod sebou:
 
-```mermaid
-flowchart TD
-    subgraph UI["Klient / Webové rozhraní"]
-        WEB["SPA Dashboard (HTML5 / CSS3 / Vanilla JS)"]
-        SWAGGER["Swagger UI (/docs) & ReDoc (/redoc)"]
-    end
-
-    subgraph PRES["1. Prezentační vrstva (src/app/api + src/app/schemas)"]
-        API["FastAPI Routery (/api/v1/*)"]
-        SCH["Pydantic v2 Schémata (validace vstupů/výstupů)"]
-    end
-
-    subgraph BIZ["2. Aplikační / Byznys vrstva (src/app/services)"]
-        SVC_REG["RegistrationService (kapacita, FIFO, audit, výjimky)"]
-        SVC_TERM["TermService (termíny, střídání a kolize lektorů)"]
-        SVC_ATT["AttendanceService (denní docházka, výpočet %)"]
-        SVC_CERT["CertificateService (podmínky, unikátnost, neměnnost)"]
-        SVC_REP["ReportService (agregace, statistiky)"]
-    end
-
-    subgraph DATA["3. Datová a infrastrukturní vrstva (src/app/models + core)"]
-        ORM["SQLAlchemy 2.0 ORM Modely (8 entit)"]
-        ALEMBIC["Alembic verzované migrace"]
-        DB[("PostgreSQL 16 (Docker) / SQLite (testy)")]
-    end
-
-    WEB --> API
-    SWAGGER --> API
-    API --> SCH
-    API --> SVC_REG & SVC_TERM & SVC_ATT & SVC_CERT & SVC_REP
-    SVC_REG & SVC_TERM & SVC_ATT & SVC_CERT & SVC_REP --> ORM
-    ORM --> DB
-    ALEMBIC --> DB
-```
+| Vrstva | Umístění v kódu | Odpovědnost | Závislosti |
+|---|---|---|---|
+| **1. Prezentační vrstva** | `src/app/api/v1/endpoints/`, `src/app/schemas/`, `src/app/static/` | HTTP/REST endpointy FastAPI, typová validace Pydantic v2, webový SPA dashboard, OpenAPI/Swagger (`/docs`) | Pouze na byznys vrstvu (`services`) |
+| **2. Byznys / aplikační vrstva** | `src/app/services/` | Vynucování obchodních pravidel (kapacity, FIFO pořadník, audit, kolize lektorů, limit docházky, neměnnost osvědčení, reporty) | Pouze na datovou vrstvu (`models`) |
+| **3. Datová vrstva** | `src/app/models/`, `src/app/core/database.py`, `alembic/` | SQLAlchemy 2.0 ORM modely (8 entit), relační vazby a integritní omezení, verzované migrace Alembic, PostgreSQL 16 | Žádné zpětné závislosti na vyšší vrstvy |
 
 ### Technologický stack (ADR-002, ADR-004)
 | Oblast | Technologie | Důvod volby |
@@ -99,84 +70,16 @@ prpo_projekt/
 
 Doménový model tvoří **8 relačních entit**, z toho **2 plnohodnotné vazební tabulky M:N s vlastními atributy** (`term_lecturers` a `registrations`). Schéma je spravováno výhradně migracemi Alembic (`alembic upgrade head`).
 
-```mermaid
-erDiagram
-    courses ||--o{ terms : "má termíny"
-    terms ||--o{ term_lecturers : "vyučují"
-    lecturers ||--o{ term_lecturers : "učí na"
-    terms ||--o{ registrations : "má přihlášky"
-    students ||--o{ registrations : "přihlašuje se"
-    registrations ||--o{ attendances : "eviduje docházku"
-    registrations ||--o| certificates : "vydává osvědčení"
-
-    courses {
-        int id PK
-        varchar name
-        text annotation
-        int hours_duration
-        numeric price
-        boolean is_accredited
-    }
-
-    terms {
-        int id PK
-        int course_id FK
-        date date_from
-        date date_to
-        varchar location
-        varchar classroom
-        int capacity
-    }
-
-    lecturers {
-        int id PK
-        varchar first_name
-        varchar last_name
-        varchar email UK
-        varchar phone
-    }
-
-    term_lecturers {
-        int term_id PK,FK
-        int lecturer_id PK,FK
-        int taught_hours
-    }
-
-    students {
-        int id PK
-        varchar first_name
-        varchar last_name
-        varchar email UK
-        varchar phone
-    }
-
-    registrations {
-        int id PK
-        int student_id FK
-        int term_id FK
-        enum status
-        int queue_position
-        timestamptz created_at
-        timestamptz cancelled_at
-        boolean admin_override
-        varchar admin_override_reason
-    }
-
-    attendances {
-        int id PK
-        int registration_id FK
-        date date
-        boolean is_present
-        varchar note
-    }
-
-    certificates {
-        int id PK
-        int registration_id FK,UK
-        varchar certificate_number UK
-        timestamptz issued_at
-    }
-```
+| Tabulka | Primární klíč / Cizí klíče | Klíčové sloupce | Vazby |
+|---|---|---|---|
+| `courses` | `id` (PK) | `name`, `annotation`, `hours_duration`, `price`, `is_accredited` | 1:N → `terms` |
+| `terms` | `id` (PK), `course_id` (FK → `courses.id`) | `date_from`, `date_to`, `location`, `classroom`, `capacity` | N:1 → `courses`, M:N → `lecturers`, M:N → `students` |
+| `lecturers` | `id` (PK) | `first_name`, `last_name`, `email` (UNIQUE), `phone` | M:N → `terms` (přes `term_lecturers`) |
+| `term_lecturers` | `(term_id, lecturer_id)` (složený PK, FK) | `taught_hours` | Vazební tabulka M:N pro střídání lektorů a rozpad hodin |
+| `students` | `id` (PK) | `first_name`, `last_name`, `email` (UNIQUE), `phone` | M:N → `terms` (přes `registrations`) |
+| `registrations` | `id` (PK), `student_id` (FK), `term_id` (FK) | `status` (ENUM), `queue_position`, `created_at`, `cancelled_at`, `admin_override`, `admin_override_reason` | Vazební tabulka M:N; 1:N → `attendances`, 1:0..1 → `certificates` |
+| `attendances` | `id` (PK), `registration_id` (FK) | `date`, `is_present`, `note` | N:1 → `registrations` |
+| `certificates` | `id` (PK), `registration_id` (FK, UNIQUE) | `certificate_number` (UNIQUE), `issued_at` | 1:1 → `registrations` (`ON DELETE RESTRICT`) |
 
 ### Klíčová integritní omezení na úrovni databáze
 * **`students.email` a `lecturers.email` (`UNIQUE`)** – jednoznačná identifikace osob bez duplicitních záznamů.
@@ -200,35 +103,17 @@ Zadání upozorňuje, že u Varianty C se návrh láme ve dvou zásadních oblas
   4. Pokud se odhlásí samotný náhradník z pořadníku, posunou se o 1 pozici dopředu všichni náhradníci za ním.
 * **Odolnost vůči změně názoru klienta:** Pokud by klient v budoucnu požadoval ruční potvrzování náhradníka (místo automatického posunu), stačí doplnit mezistav `OFFERED` do `RegistrationStatus` a oddělit krok nabídky od potvrzení bez zásahu do ostatních tabulek.
 
-```mermaid
-sequenceDiagram
-    participant S as Student / Admin
-    participant API as FastAPI (/registrations)
-    participant SVC as RegistrationService
-    participant DB as PostgreSQL
-
-    S->>API: POST /registrations/{id}/cancel
-    API->>SVC: cancel_registration(id)
-    SVC->>DB: Nastav status=CANCELLED, cancelled_at=NOW()
-    alt Původní stav byl CONFIRMED
-        SVC->>DB: Najdi náhradníka s queue_position = 1
-        opt Náhradník existuje
-            SVC->>DB: Povyš náhradníka na CONFIRMED (queue_position = NULL)
-            SVC->>DB: Posuň ostatní náhradníky (queue_position - 1)
-        end
-    end
-    SVC->>DB: COMMIT transakce
-    SVC-->>API: RegistrationCancelResponse (včetně promoted_registration_id)
-    API-->>S: 200 OK + detail o automatickém posunu
-```
+**Průběh transakce při zrušení potvrzené přihlášky (`POST /api/v1/registrations/{id}/cancel`):**
+1. Přihlášce se změní stav na `CANCELLED`, zapíše se `cancelled_at = NOW()` a `queue_position = NULL` (záznam zůstává v databázi pro audit).
+2. V téže transakci systém vyhledá náhradníka daného termínu s `status = WAITING_LIST` a `queue_position = 1`.
+3. Pokud existuje, povýší jej na `CONFIRMED` (`queue_position = NULL`) a všem zbývajícím náhradníkům v pořadníku dekrementuje `queue_position` o 1.
+4. Transakce se potvrdí (`COMMIT`) a API vrátí ID zrušené i povýšené přihlášky.
 
 ### 4.2 Pravidlo dokončení kurzu a neměnnost osvědčení (Otevřený bod č. 1)
 * **Problém:** Klient uvádí jednou limit 70 % docházky, podruhé posouzení lektorem. Osvědčení se dříve vystavovala ručně a docházelo k duplicitám čísel.
 * **Zvolené řešení:**
-  1. Kombinujeme obě podmínky jako **konjunkci**:
-     * **Objektivní prerekvizita:** `AttendanceService.get_summary()` vypočítá procento účasti z denních záznamů v tabulce `attendances` a ověří `attendance_percentage >= 70.0`.
-     * **Formální schválení:** `CertificateService.issue_certificate()` vyžaduje explicitní příznak `lecturer_approved = True` (který v UI potvrzuje role Lektor nebo Administrátor).
-  2. Při splnění obou podmínek se vygeneruje unikátní evidenční číslo formátu `TRU-<ROK>-<0001..>`.
+  1. **Konjunkce docházky a schválení:** `AttendanceService.get_summary()` vypočítá procento účasti z denních záznamů v tabulce `attendances` a ověří `attendance_percentage >= 70.0`. Současně `CertificateService.issue_certificate()` vyžaduje explicitní příznak `lecturer_approved = True` (potvrzený lektorem nebo administrátorem).
+  2. **Generování unikátního čísla:** Při splnění obou podmínek systém vygeneruje evidenční číslo formátu `TRU-<ROK>-<0001..>`.
   3. **Neměnnost:** Pokud pro danou přihlášku již osvědčení existuje, pokus o opětovné vydání nebo přepis končí chybou `HTTP 400`. K osvědčení neexistuje žádný `PUT`/`PATCH`/`DELETE` endpoint.
 
 ### 4.3 Souběh termínů téhož kurzu (Otevřený bod č. 3)
@@ -255,7 +140,7 @@ Aplikace poskytuje dokumentované REST API na `/docs` (Swagger UI) a webový das
 | **Termíny** | `GET /terms`, `POST /terms`, `GET /terms/{id}` | Správa termínů, obsazenosti a přiřazení lektorů |
 | **Studenti & Lektoři** | `GET/POST /students`, `GET/POST /lecturers` | Evidence osob s kontrolou unikátnosti e-mailu |
 | **Přihlášky** | `POST /registrations`, `POST /registrations/self`, `POST /registrations/{id}/cancel`, `GET /registrations/term/{id}`, `GET /registrations/student/{id}` | Admin zápis, samoobslužný zápis studenta, zrušení s auto-posunem, přehledy |
-| **Docházka** | `POST /attendance`, `GET /attendance/summary/{reg_id}` | Denní docházka a souhrn splnění limitu $\ge 70\ \%$ |
+| **Docházka** | `POST /attendance`, `GET /attendance/summary/{reg_id}` | Denní docházka a souhrn splnění limitu ≥ 70 % |
 | **Osvědčení** | `POST /certificates/issue`, `GET /certificates/{number}` | Vystavení a čtení neměnného osvědčení |
 | **Reporty** | `GET /reports/occupancy`, `GET /reports/lecturer-hours`, `GET /reports/multi-course-students` | Manažerské statistiky + podklady pro CSV export |
 
@@ -276,7 +161,7 @@ Všechna klíčová obchodní pravidla i kompletní uživatelský průchod aplik
 | `tests/test_business_rules.py` | `test_rule_capacity_and_fifo_queue` | Striktní limit kapacity a FIFO pořadí náhradníků |
 | `tests/test_business_rules.py` | `test_rule_cancellation_audit_and_auto_promote` | Auditní uchování zrušené přihlášky a auto-posun náhradníka č. 1 |
 | `tests/test_business_rules.py` | `test_rule_no_concurrent_registration_same_course` | Zákaz dvou aktivních přihlášek na stejný kurz |
-| `tests/test_business_rules.py` | `test_rule_certificate_issuing_and_immutability` | Limit $\ge 70\ \%$ docházky, unikátní číslo a neměnnost certifikátu |
+| `tests/test_business_rules.py` | `test_rule_certificate_issuing_and_immutability` | Limit ≥ 70 % docházky, unikátní číslo a neměnnost certifikátu |
 | `tests/test_business_rules.py` | `test_rule_late_registration_admin_override` | Blokace pozdního zápisu a auditovaná výjimka admina |
 | `tests/test_business_rules.py` | `test_rule_lecturer_schedule_conflict` | Zákaz časového překryvu výuky u téhož lektora |
 | `tests/test_business_rules.py` | `test_rule_student_self_registration_and_history` | Samoobslužný zápis nového/existujícího studenta a jeho historie |

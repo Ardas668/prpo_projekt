@@ -4,7 +4,7 @@ Tento repozitář obsahuje semestrální projekt pro předmět **Pokročilé pro
 
 Projekt realizuje **Variantu C: Kurzy vzdělávacího centra**.
 
-> 📄 **Kompletní technická dokumentace** (architektura, ER a sekvenční diagramy, rozbor FIFO pořadníku a dokončení kurzu, API přehled a metodika testování): **[docs/technicka_dokumentace.md](./docs/technicka_dokumentace.md)**
+> 📄 **Kompletní technická dokumentace** (architektura, datový model, rozbor FIFO pořadníku a dokončení kurzu, API přehled a metodika testování): **[docs/technicka_dokumentace.pdf](./docs/technicka_dokumentace.pdf)** *(zdrojový Markdown: [docs/technicka_dokumentace.md](./docs/technicka_dokumentace.md))*
 
 ---
 
