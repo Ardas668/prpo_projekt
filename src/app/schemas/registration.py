@@ -16,6 +16,8 @@ class RegistrationResponse(BaseModel):
     queue_position: int | None = None
     created_at: datetime
     cancelled_at: datetime | None = None
+    admin_override: bool = False
+    admin_override_reason: str | None = None
     student_name: str | None = None
     course_name: str | None = None
     model_config = ConfigDict(from_attributes=True)

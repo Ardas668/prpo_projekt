@@ -10,9 +10,11 @@ from src.app.models import Course, Term, Lecturer, TermLecturer, Student, Regist
 from src.app.schemas.registration import RegistrationCreate
 from src.app.schemas.certificate import CertificateIssueRequest
 from src.app.schemas.attendance import AttendanceBulkCreate, AttendanceRecord
+from src.app.schemas.term import TermCreate, TermLecturerAssign
 from src.app.services.registration_service import RegistrationService
 from src.app.services.certificate_service import CertificateService
 from src.app.services.attendance_service import AttendanceService
+from src.app.services.term_service import TermService
 
 # In-memory databáze pro rychlé a izolované unit/integrační testy
 @pytest.fixture
@@ -204,3 +206,119 @@ def test_rule_certificate_issuing_and_immutability(db_session, sample_data):
         CertificateService.issue_certificate(db_session, CertificateIssueRequest(registration_id=reg.id, lecturer_approved=True))
     assert exc_info2.value.status_code == 400
     assert "neměnné" in exc_info2.value.detail
+
+
+def test_rule_late_registration_admin_override(db_session, sample_data):
+    """
+    Ověření pravidla 4 (ADR-003):
+    - Zápis po zahájení termínu (date_from <= today) je standardně zakázán (HTTP 400).
+    - Administrátor může povolit zápis s explicitním admin_override=True a důvodem.
+    """
+    course = sample_data["course"]
+    student = sample_data["students"][0]
+    today = date.today()
+
+    # Termín, který již začal před 2 dny
+    past_term = Term(
+        course_id=course.id,
+        date_from=today - timedelta(days=2),
+        date_to=today + timedelta(days=2),
+        location="Trutnov",
+        classroom="Učebna 3",
+        capacity=5
+    )
+    db_session.add(past_term)
+    db_session.commit()
+
+    # 1. Běžný pokus o zápis bez administrátorské výjimky -> musí selhat s kódem 400
+    with pytest.raises(HTTPException) as exc_info:
+        RegistrationService.register_student(
+            db_session,
+            RegistrationCreate(student_id=student.id, term_id=past_term.id, admin_override=False)
+        )
+    assert exc_info.value.status_code == 400
+    assert "zahájen" in exc_info.value.detail
+
+    # 2. Zápis administrátorem s výjimkou a povinným auditním důvodem -> úspěch
+    reg = RegistrationService.register_student(
+        db_session,
+        RegistrationCreate(
+            student_id=student.id,
+            term_id=past_term.id,
+            admin_override=True,
+            admin_override_reason="Schváleno ředitelkou centra na základě telefonické žádosti"
+        )
+    )
+    assert reg.status == RegistrationStatus.CONFIRMED
+    assert reg.admin_override is True
+    assert reg.admin_override_reason == "Schváleno ředitelkou centra na základě telefonické žádosti"
+
+    # Ověření uložení v DB pro audit
+    db_reg = db_session.query(Registration).filter(Registration.id == reg.id).first()
+    assert db_reg.admin_override is True
+    assert db_reg.admin_override_reason == "Schváleno ředitelkou centra na základě telefonické žádosti"
+
+
+def test_rule_lecturer_schedule_conflict(db_session, sample_data):
+    """
+    Ověření pravidla o ochraně před časovou kolizí lektorů (ADR-005):
+    - Lektor nemůže být přiřazen k termínu, který se časově překrývá s jiným termínem, kde již učí.
+    """
+    course = sample_data["course"]
+    today = date.today()
+
+    lecturer = Lecturer(
+        first_name="Karel",
+        last_name="Vomáčka",
+        email="karel.vomacka@test.cz",
+        phone="+420 777 000 111"
+    )
+    db_session.add(lecturer)
+    db_session.commit()
+
+    # 1. Vytvoření prvního termínu: dny 10 až 15
+    term1 = TermService.create(
+        db_session,
+        TermCreate(
+            course_id=course.id,
+            date_from=today + timedelta(days=10),
+            date_to=today + timedelta(days=15),
+            location="Trutnov",
+            classroom="Učebna 1",
+            capacity=10,
+            lecturers=[TermLecturerAssign(lecturer_id=lecturer.id, taught_hours=20)]
+        )
+    )
+    assert term1.id is not None
+
+    # 2. Pokus o vytvoření druhého termínu s kolidujícím termínem (dny 13 až 18) -> chyba 400
+    with pytest.raises(HTTPException) as exc_info:
+        TermService.create(
+            db_session,
+            TermCreate(
+                course_id=course.id,
+                date_from=today + timedelta(days=13),
+                date_to=today + timedelta(days=18),
+                location="Náchod",
+                classroom="Učebna 2",
+                capacity=8,
+                lecturers=[TermLecturerAssign(lecturer_id=lecturer.id, taught_hours=15)]
+            )
+        )
+    assert exc_info.value.status_code == 400
+    assert "Časová kolize lektora" in exc_info.value.detail
+
+    # 3. Vytvoření nekolidujícího termínu (dny 20 až 25) -> úspěch
+    term2 = TermService.create(
+        db_session,
+        TermCreate(
+            course_id=course.id,
+            date_from=today + timedelta(days=20),
+            date_to=today + timedelta(days=25),
+            location="Náchod",
+            classroom="Učebna 2",
+            capacity=8,
+            lecturers=[TermLecturerAssign(lecturer_id=lecturer.id, taught_hours=15)]
+        )
+    )
+    assert term2.id is not None

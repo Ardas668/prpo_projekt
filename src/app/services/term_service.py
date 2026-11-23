@@ -52,6 +52,25 @@ class TermService:
             lecturer = db.query(Lecturer).filter(Lecturer.id == l_assign.lecturer_id).first()
             if not lecturer:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lektor s ID {l_assign.lecturer_id} neexistuje.")
+
+            # Kontrola časové kolize lektora s jinými termíny
+            conflict_term = (
+                db.query(Term)
+                .join(TermLecturer, Term.id == TermLecturer.term_id)
+                .filter(
+                    TermLecturer.lecturer_id == l_assign.lecturer_id,
+                    Term.id != term.id,
+                    Term.date_from <= term_in.date_to,
+                    Term.date_to >= term_in.date_from
+                )
+                .first()
+            )
+            if conflict_term:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Časová kolize lektora: {lecturer.first_name} {lecturer.last_name} již učí termín ID {conflict_term.id} v období od {conflict_term.date_from} do {conflict_term.date_to}."
+                )
+
             db.add(TermLecturer(
                 term_id=term.id,
                 lecturer_id=l_assign.lecturer_id,

@@ -164,6 +164,8 @@ class RegistrationService:
             queue_position=reg.queue_position,
             created_at=reg.created_at,
             cancelled_at=reg.cancelled_at,
+            admin_override=reg.admin_override,
+            admin_override_reason=reg.admin_override_reason,
             student_name=f"{reg.student.first_name} {reg.student.last_name}" if reg.student else None,
             course_name=reg.term.course.name if reg.term and reg.term.course else None
         )

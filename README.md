@@ -142,7 +142,16 @@ Tato sekce průběžně zaznamenává všechna klíčová věcná a architektoni
   * API dokumentace zůstává nedotčena a dostupná na `/docs` a `/redoc`.
   * Není nutné přidávat Node.js ani další servisní kontejner do `docker-compose.yml`.
 
+#### ADR-005: Validace časových kolizí lektorů
+* **Datum:** 2026-11-23
+* **Stav:** Schváleno
+* **Kontext:** Zadání klienta vyžaduje evidenci externích lektorů a střídání lektorů na termínech. Bylo nutné zajistit, aby externí lektor nebyl v systému omylem přiřazen k výuce dvou různých termínů/kurzů ve stejném časovém intervalu.
+* **Rozhodnutí:** V servisní vrstvě (`TermService`) striktně validovat překryv termínů při přiřazení lektora. Pokud lektor již učí na termínu, jehož interval `[date_from, date_to]` koliduje s nově přiřazovaným termínem, systém operaci zamítne s chybovým kódem HTTP 400.
+* **Důsledky:**
+  * Ochrana proti nereálnému rozvrhování externistů.
+  * Pokryto automatizovaným integračním testem `test_rule_lecturer_schedule_conflict`.
+
 ---
 
-*(Další rozhodnutí ADR-005 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem.)*
+*(Další rozhodnutí ADR-006 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem.)*
 
