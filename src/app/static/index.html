@@ -33,7 +33,7 @@
       Termíny a kapacity
     </button>
     <button class="nav-tab" data-tab="registrations" onclick="app.switchTab('registrations')">
-      Přihlášky a FIFO pořadník
+      Přihlášky a náhradníci
     </button>
     <button class="nav-tab" data-tab="attendance_certs" onclick="app.switchTab('attendance_certs')">
       Docházka a osvědčení
@@ -109,14 +109,17 @@
       </div>
     </section>
 
-    <!-- TAB 3: Přihlášky & FIFO Pořadník -->
+    <!-- TAB 3: Přihlášky & Náhradníci -->
     <section id="tab-registrations" class="tab-content" style="display: none;">
       <div class="section-header">
         <div class="section-title">
-          <h2>Správa přihlášek a FIFO pořadník náhradníků</h2>
-          <p>Předvedení striktního limitu kapacity, automatického zařazení do fronty a posunu při odhlášení</p>
+          <h2>Správa přihlášek a pořadník náhradníků</h2>
+          <p>Přehled přihlášených účastníků, automatické zařazení do pořadníku a posun při uvolnění místa</p>
         </div>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="app.openNewStudentModal()">
+            <span>+</span> Založit studenta
+          </button>
           <label for="filter-term" style="font-size: 0.85rem; color: var(--text-muted);">Zobrazit pro termín:</label>
           <select id="filter-term" class="form-control" style="width: auto;" onchange="app.loadRegistrationsForSelectedTerm()">
             <!-- Dynamicky naplněné termíny -->
@@ -129,7 +132,7 @@
 
       <div class="callout callout-amber" id="waiting-list-info" style="display: none;">
         <div>
-          <div class="callout-title">Aktivní čekací listina (FIFO)</div>
+          <div class="callout-title">Pořadník náhradníků</div>
           <div class="callout-desc" id="waiting-list-text">
             Kapacita termínu je plně vyčerpána. Následující zájemci jsou zařazeni v přesném pořadí náhradníků.
           </div>
@@ -145,7 +148,7 @@
               <th>Kontakt</th>
               <th>Datum registrace</th>
               <th>Stav přihlášky</th>
-              <th>Pořadí v FIFO</th>
+              <th>Pořadí v pořadníku</th>
               <th>Akce</th>
             </tr>
           </thead>
@@ -399,7 +402,7 @@
   </div>
 
   <!-- Modal: Nový student -->
-  <div class="modal-overlay" id="modal-student">
+  <div class="modal-overlay" id="modal-student" style="z-index: 1100;">
     <div class="modal-box">
       <div class="modal-header">
         <h3>Založit nového studenta</h3>

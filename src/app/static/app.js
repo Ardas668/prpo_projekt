@@ -134,7 +134,7 @@ const app = {
     if (!grid) return;
     grid.innerHTML = this.data.terms.map(term => {
       const course = this.data.courses.find(c => c.id === term.course_id) || { name: 'Kurz' };
-      const pct = term.capacity > 0 ? Math.min(100, Math.round((term.occupied_count / term.capacity) * 100)) : 0;
+      const pct = term.capacity > 0 ? Math.min(100, Math.round((term.confirmed_students_count / term.capacity) * 100)) : 0;
       let progClass = 'progress-normal';
       if (pct >= 100) progClass = 'progress-full';
       else if (pct >= 80) progClass = 'progress-warning';
@@ -148,8 +148,8 @@ const app = {
                 ${term.location}, ${term.classroom}
               </div>
             </div>
-            <span class="badge ${term.occupied_count >= term.capacity ? 'badge-waiting' : 'badge-confirmed'}">
-              ${term.occupied_count >= term.capacity ? 'Kapacita plná' : 'Volná místa'}
+            <span class="badge ${term.confirmed_students_count >= term.capacity ? 'badge-waiting' : 'badge-confirmed'}">
+              ${term.confirmed_students_count >= term.capacity ? 'Kapacita plná' : 'Volná místa'}
             </span>
           </div>
 
@@ -159,15 +159,15 @@ const app = {
 
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 0.825rem; margin-bottom: 0.2rem;">
-              <span>Obsazenost: <strong>${term.occupied_count} / ${term.capacity}</strong></span>
+              <span>Obsazenost: <strong>${term.confirmed_students_count} / ${term.capacity}</strong></span>
               <span>${pct} %</span>
             </div>
             <div class="progress-bar-container">
               <div class="progress-bar-fill ${progClass}" style="width: ${pct}%"></div>
             </div>
-            ${term.waiting_count > 0 ? `
-              <div style="font-size: 0.8rem; color: #fbbf24; margin-top: 0.4rem;">
-                V FIFO pořadníku čeká: <strong>${term.waiting_count} zájemců</strong>
+            ${term.waiting_list_count > 0 ? `
+              <div style="font-size: 0.8rem; color: #b45309; margin-top: 0.4rem;">
+                V pořadníku náhradníků čeká: <strong>${term.waiting_list_count} zájemců</strong>
               </div>
             ` : ''}
           </div>
@@ -191,7 +191,7 @@ const app = {
     const modalSelect = document.getElementById('reg-term-id');
     const options = this.data.terms.map(t => {
       const course = this.data.courses.find(c => c.id === t.course_id) || { name: 'Kurz' };
-      return `<option value="${t.id}">#${t.id}: ${course.name} (${t.location}, kap. ${t.occupied_count}/${t.capacity})</option>`;
+      return `<option value="${t.id}">#${t.id}: ${course.name} (${t.location}, kap. ${t.confirmed_students_count}/${t.capacity})</option>`;
     }).join('');
 
     if (filterSelect) filterSelect.innerHTML = options;
@@ -211,10 +211,10 @@ const app = {
     const term = this.data.terms.find(t => t.id === termId);
     const info = document.getElementById('reg-term-info');
     if (term && info) {
-      if (term.occupied_count >= term.capacity) {
-        info.innerHTML = `<strong style="color: #fbbf24;">Kapacita ${term.capacity} míst je plně obsazena.</strong> Student bude automaticky zařazen do <strong>FIFO pořadníku náhradníků</strong> na pozici #${term.waiting_count + 1}.`;
+      if (term.confirmed_students_count >= term.capacity) {
+        info.innerHTML = `<strong style="color: #b45309;">Kapacita ${term.capacity} míst je plně obsazena.</strong> Student bude zařazen do <strong>pořadníku náhradníků</strong> na pozici #${term.waiting_list_count + 1}.`;
       } else {
-        info.innerHTML = `Volná místa: <strong>${term.capacity - term.occupied_count}</strong> z ${term.capacity}. Student získá potvrzenou registraci.`;
+        info.innerHTML = `Volná místa: <strong>${term.capacity - term.confirmed_students_count}</strong> z ${term.capacity}. Student získá potvrzenou registraci.`;
       }
     }
   },
@@ -268,9 +268,9 @@ const app = {
             <td>#${reg.id}</td>
             <td><strong>${reg.student_name}</strong></td>
             <td>${reg.student_email || '—'}</td>
-            <td>${new Date(reg.registration_date).toLocaleDateString('cs-CZ')}</td>
+            <td>${reg.created_at ? new Date(reg.created_at).toLocaleDateString('cs-CZ') : '—'}</td>
             <td><span class="badge ${badgeClass}">${statusText}</span></td>
-            <td>${reg.queue_position ? `<strong style="color: #fbbf24;">#${reg.queue_position}</strong> (FIFO)` : '—'}</td>
+            <td>${reg.queue_position ? `<strong style="color: #b45309;">#${reg.queue_position}</strong>` : '—'}</td>
             <td>
               ${canCancel ? `
                 <button class="btn btn-danger btn-sm" onclick="app.cancelRegistration(${reg.id}, '${reg.student_name}')">
@@ -286,7 +286,7 @@ const app = {
     }
   },
 
-  // Zrušení přihlášky a demonstrace automatického posunu FIFO
+  // Zrušení přihlášky a demonstrace automatického posunu náhradníka
   async cancelRegistration(regId, studentName) {
     if (!confirm(`Opravdu chcete zrušit registraci studenta ${studentName}?`)) return;
 
@@ -296,7 +296,7 @@ const app = {
       });
 
       if (result.promoted_registration_id) {
-        this.showToast(`Přihláška zrušena. Uvolněné místo automaticky obsadil náhradník #${result.promoted_registration_id} z FIFO pořadníku.`, 'success');
+        this.showToast(`Přihláška zrušena. Uvolněné místo automaticky obsadil náhradník #${result.promoted_registration_id} z pořadníku náhradníků.`, 'success');
       } else {
         this.showToast(`Přihláška #${regId} byla zrušena a zaevidována pro audit.`, 'info');
       }
@@ -334,8 +334,8 @@ const app = {
     const payload = {
       student_id: studentId,
       term_id: termId,
-      allow_late_registration: isLate,
-      late_registration_reason: isLate ? reason : null
+      admin_override: isLate,
+      admin_override_reason: isLate ? reason : null
     };
 
     try {
@@ -345,7 +345,7 @@ const app = {
       });
 
       if (res.status === 'WAITING_LIST') {
-        this.showToast(`Kapacita byla plná. Student byl zařazen do FIFO pořadníku jako náhradník č. ${res.queue_position}.`, 'warning');
+        this.showToast(`Kapacita byla plná. Student byl zařazen do pořadníku náhradníků na pozici č. ${res.queue_position}.`, 'warning');
       } else {
         this.showToast('Student byl úspěšně zapsán do termínu kurzu.', 'success');
       }
@@ -466,6 +466,8 @@ const app = {
 
   // Nový student
   openNewStudentModal() {
+    const form = document.getElementById('form-student');
+    if (form) form.reset();
     document.getElementById('modal-student').classList.add('open');
   },
 
@@ -612,7 +614,7 @@ const app = {
       document.getElementById('cert-view-number').textContent = cert.certificate_number;
       document.getElementById('cert-view-student').textContent = cert.student_name;
       document.getElementById('cert-view-course').textContent = cert.course_name;
-      document.getElementById('cert-view-date').textContent = new Date(cert.issue_date).toLocaleDateString('cs-CZ');
+      document.getElementById('cert-view-date').textContent = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('cs-CZ') : '';
       document.getElementById('modal-certificate').classList.add('open');
     } catch (err) {
       this.showToast('Chyba načítání osvědčení: ' + err.message, 'error');
