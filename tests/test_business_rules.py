@@ -7,7 +7,7 @@ from fastapi import HTTPException
 
 from src.app.core.database import Base
 from src.app.models import Course, Term, Lecturer, TermLecturer, Student, Registration, RegistrationStatus, Attendance, Certificate
-from src.app.schemas.registration import RegistrationCreate
+from src.app.schemas.registration import RegistrationCreate, SelfRegistrationCreate
 from src.app.schemas.certificate import CertificateIssueRequest
 from src.app.schemas.attendance import AttendanceBulkCreate, AttendanceRecord
 from src.app.schemas.term import TermCreate, TermLecturerAssign
@@ -322,3 +322,49 @@ def test_rule_lecturer_schedule_conflict(db_session, sample_data):
         )
     )
     assert term2.id is not None
+
+
+def test_rule_student_self_registration_and_history(db_session, sample_data):
+    """
+    Ověření samoobslužného zápisu studenta (ADR-007):
+    - Nový zájemce podle e-mailu automaticky založí záznam Student a vytvoří přihlášku.
+    - Opakovaný samoobslužný zápis stejným e-mailem znovu použije existující profil a dodrží obchodní pravidla.
+    - Přehled přihlášek studenta vrací jeho vlastní záznamy.
+    """
+    term = sample_data["term"]
+
+    # 1. Samoobslužný zápis úplně nového zájemce
+    reg1 = RegistrationService.self_register(
+        db_session,
+        SelfRegistrationCreate(
+            first_name="Klára",
+            last_name="Dvořáková",
+            email="Klara.Dvorakova@Test.cz",
+            phone="+420 602 111 222",
+            term_id=term.id,
+        ),
+    )
+    assert reg1.status == RegistrationStatus.CONFIRMED
+    assert reg1.student_email == "klara.dvorakova@test.cz"
+
+    # 2. Pokus o druhý zápis téhož e-mailu na stejný kurz -> musí zachytit pravidlo zákazu souběhu
+    with pytest.raises(HTTPException) as exc_info:
+        RegistrationService.self_register(
+            db_session,
+            SelfRegistrationCreate(
+                first_name="Klára",
+                last_name="Dvořáková",
+                email="klara.dvorakova@test.cz",
+                term_id=term.id,
+            ),
+        )
+    assert exc_info.value.status_code == 400
+
+    # Student nesmí být založen duplicitně
+    matching_students = db_session.query(Student).filter(Student.email == "klara.dvorakova@test.cz").all()
+    assert len(matching_students) == 1
+
+    # 3. Načtení historie přihlášek konkrétního studenta
+    history = RegistrationService.get_by_student(db_session, reg1.student_id)
+    assert len(history) == 1
+    assert history[0].id == reg1.id

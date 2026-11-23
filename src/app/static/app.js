@@ -7,7 +7,11 @@ const app = {
     terms: [],
     students: [],
     lecturers: [],
-    selectedTermId: null
+    selectedTermId: null,
+    currentRole: 'admin',
+    currentStudentId: null,
+    currentLecturerId: null,
+    activeTab: 'courses'
   },
 
   async init() {
@@ -18,16 +22,169 @@ const app = {
         this.loadStudents(),
         this.loadLecturers()
       ]);
+      this.restoreProfileState();
       this.updateKPIs();
       this.populateTermDropdowns();
       this.populateStudentDropdown();
       if (this.data.terms.length > 0) {
         this.data.selectedTermId = this.data.terms[0].id;
-        document.getElementById('filter-term').value = this.data.selectedTermId;
-        this.loadRegistrationsForSelectedTerm();
+        const filterEl = document.getElementById('filter-term');
+        if (filterEl) filterEl.value = this.data.selectedTermId;
       }
+      this.applyRoleUI();
     } catch (err) {
       this.showToast('Chyba při načítání dat: ' + err.message, 'error');
+    }
+  },
+
+  restoreProfileState() {
+    const savedRole = localStorage.getItem('at_role');
+    if (savedRole && ['admin', 'lecturer', 'student'].includes(savedRole)) {
+      this.data.currentRole = savedRole;
+    }
+    const savedLecturer = parseInt(localStorage.getItem('at_lecturer_id'));
+    if (savedLecturer && this.data.lecturers.some(l => l.id === savedLecturer)) {
+      this.data.currentLecturerId = savedLecturer;
+    } else if (this.data.lecturers.length > 0) {
+      this.data.currentLecturerId = this.data.lecturers[0].id;
+    }
+
+    const savedStudent = parseInt(localStorage.getItem('at_student_id'));
+    if (savedStudent && this.data.students.some(s => s.id === savedStudent)) {
+      this.data.currentStudentId = savedStudent;
+    } else {
+      this.data.currentStudentId = null;
+    }
+
+    const roleSelect = document.getElementById('role-select');
+    if (roleSelect) roleSelect.value = this.data.currentRole;
+  },
+
+  saveProfileState() {
+    localStorage.setItem('at_role', this.data.currentRole);
+    if (this.data.currentLecturerId) {
+      localStorage.setItem('at_lecturer_id', String(this.data.currentLecturerId));
+    }
+    if (this.data.currentStudentId) {
+      localStorage.setItem('at_student_id', String(this.data.currentStudentId));
+    } else {
+      localStorage.removeItem('at_student_id');
+    }
+  },
+
+  onRoleChange() {
+    const roleSelect = document.getElementById('role-select');
+    this.data.currentRole = roleSelect.value;
+    if (this.data.currentRole === 'lecturer' && !this.data.currentLecturerId && this.data.lecturers.length > 0) {
+      this.data.currentLecturerId = this.data.lecturers[0].id;
+    }
+    this.saveProfileState();
+    this.applyRoleUI();
+  },
+
+  onProfileChange() {
+    const profileSelect = document.getElementById('profile-select');
+    const val = profileSelect.value;
+    if (this.data.currentRole === 'lecturer') {
+      this.data.currentLecturerId = val ? parseInt(val) : null;
+    } else if (this.data.currentRole === 'student') {
+      this.data.currentStudentId = val ? parseInt(val) : null;
+    }
+    this.saveProfileState();
+    this.refreshActiveTab();
+  },
+
+  populateProfileSelect() {
+    const profileSelect = document.getElementById('profile-select');
+    if (!profileSelect) return;
+
+    if (this.data.currentRole === 'admin') {
+      profileSelect.style.display = 'none';
+      profileSelect.innerHTML = '';
+      return;
+    }
+
+    profileSelect.style.display = 'inline-block';
+    if (this.data.currentRole === 'lecturer') {
+      profileSelect.innerHTML = this.data.lecturers.map(l => `
+        <option value="${l.id}">${l.first_name} ${l.last_name}</option>
+      `).join('');
+      if (this.data.currentLecturerId) {
+        profileSelect.value = String(this.data.currentLecturerId);
+      }
+    } else if (this.data.currentRole === 'student') {
+      profileSelect.innerHTML = `
+        <option value="">Nový zájemce (nepřihlášený)</option>
+        ${this.data.students.map(s => `
+          <option value="${s.id}">${s.first_name} ${s.last_name} (${s.email})</option>
+        `).join('')}
+      `;
+      profileSelect.value = this.data.currentStudentId ? String(this.data.currentStudentId) : '';
+    }
+  },
+
+  applyRoleUI() {
+    const role = this.data.currentRole;
+    this.populateProfileSelect();
+
+    // Navigace dle role
+    let allowedTabs = [];
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      const roles = (tab.getAttribute('data-roles') || '').split(',');
+      const visible = roles.includes(role);
+      tab.style.display = visible ? 'flex' : 'none';
+      if (visible) allowedTabs.push(tab.getAttribute('data-tab'));
+    });
+
+    // Admin-only prvky
+    document.querySelectorAll('[data-role="admin"]').forEach(el => {
+      el.style.display = role === 'admin' ? '' : 'none';
+    });
+
+    // Rychlé tlačítko přihlášky v hlavičce
+    const quickBtn = document.getElementById('btn-quick-register');
+    if (quickBtn) {
+      if (role === 'lecturer') {
+        quickBtn.style.display = 'none';
+      } else {
+        quickBtn.style.display = '';
+        quickBtn.textContent = role === 'student' ? 'Přihlásit se na kurz' : 'Nová přihláška';
+      }
+    }
+
+    // Popisky pro lektora
+    const termsNav = document.getElementById('nav-tab-terms');
+    const termsTitle = document.getElementById('terms-section-title');
+    const termsDesc = document.getElementById('terms-section-desc');
+    if (role === 'lecturer') {
+      if (termsNav) termsNav.textContent = 'Moje termíny';
+      if (termsTitle) termsTitle.textContent = 'Moje přidělené termíny';
+      if (termsDesc) termsDesc.textContent = 'Přehled termínů, na kterých vyučujete, a jejich aktuální obsazenost';
+    } else {
+      if (termsNav) termsNav.textContent = 'Termíny a kapacity';
+      if (termsTitle) termsTitle.textContent = 'Termíny kurzů a stav kapacit';
+      if (termsDesc) termsDesc.textContent = 'Řízení obsazenosti učeben, střídání lektorů a nepřekročitelných limitů';
+    }
+
+    // Přepnutí na povolenou záložku
+    const nextTab = allowedTabs.includes(this.data.activeTab) ? this.data.activeTab : (allowedTabs[0] || 'courses');
+    this.switchTab(nextTab);
+  },
+
+  refreshActiveTab() {
+    const tab = this.data.activeTab;
+    if (tab === 'courses') {
+      this.renderCourses();
+    } else if (tab === 'terms') {
+      this.renderTerms();
+    } else if (tab === 'my_courses') {
+      this.loadMyCoursesView();
+    } else if (tab === 'registrations') {
+      this.loadRegistrationsForSelectedTerm();
+    } else if (tab === 'attendance_certs') {
+      this.loadAttendanceView();
+    } else if (tab === 'reports') {
+      this.loadReports();
     }
   },
 
@@ -54,6 +211,7 @@ const app = {
 
   // Přepínání záložek
   switchTab(tabName) {
+    this.data.activeTab = tabName;
     document.querySelectorAll('.nav-tab').forEach(t => {
       t.classList.toggle('active', t.getAttribute('data-tab') === tabName);
     });
@@ -63,8 +221,12 @@ const app = {
     const target = document.getElementById(`tab-${tabName}`);
     if (target) target.style.display = 'block';
 
-    if (tabName === 'terms') {
+    if (tabName === 'courses') {
+      this.renderCourses();
+    } else if (tabName === 'terms') {
       this.renderTerms();
+    } else if (tabName === 'my_courses') {
+      this.loadMyCoursesView();
     } else if (tabName === 'registrations') {
       this.loadRegistrationsForSelectedTerm();
     } else if (tabName === 'attendance_certs') {
@@ -132,12 +294,49 @@ const app = {
   renderTerms() {
     const grid = document.getElementById('terms-grid');
     if (!grid) return;
-    grid.innerHTML = this.data.terms.map(term => {
+
+    let visibleTerms = this.data.terms;
+    if (this.data.currentRole === 'lecturer' && this.data.currentLecturerId) {
+      visibleTerms = this.data.terms.filter(t =>
+        (t.lecturers || []).some(l => l.lecturer_id === this.data.currentLecturerId)
+      );
+    }
+
+    if (visibleTerms.length === 0) {
+      grid.innerHTML = `<div class="card" style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">Pro tento profil nejsou zatím k dispozici žádné termíny.</div>`;
+      return;
+    }
+
+    grid.innerHTML = visibleTerms.map(term => {
       const course = this.data.courses.find(c => c.id === term.course_id) || { name: 'Kurz' };
       const pct = term.capacity > 0 ? Math.min(100, Math.round((term.confirmed_students_count / term.capacity) * 100)) : 0;
       let progClass = 'progress-normal';
       if (pct >= 100) progClass = 'progress-full';
       else if (pct >= 80) progClass = 'progress-warning';
+
+      let actionsHtml = '';
+      if (this.data.currentRole === 'admin') {
+        actionsHtml = `
+          <button class="btn btn-secondary btn-sm" onclick="app.viewTermQueue(${term.id})">
+            Zobrazit účastníky
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="app.openRegisterModal(${term.id})">
+            Přihlásit studenta
+          </button>
+        `;
+      } else if (this.data.currentRole === 'lecturer') {
+        actionsHtml = `
+          <button class="btn btn-primary btn-sm" onclick="app.switchTab('attendance_certs')">
+            Evidence docházky a osvědčení
+          </button>
+        `;
+      } else {
+        actionsHtml = `
+          <button class="btn btn-primary btn-sm" onclick="app.openRegisterModal(${term.id})">
+            Přihlásit se na termín
+          </button>
+        `;
+      }
 
       return `
         <div class="card" id="term-${term.id}">
@@ -173,12 +372,7 @@ const app = {
           </div>
 
           <div class="card-meta">
-            <button class="btn btn-secondary btn-sm" onclick="app.viewTermQueue(${term.id})">
-              Zobrazit účastníky
-            </button>
-            <button class="btn btn-primary btn-sm" onclick="app.openRegisterModal(${term.id})">
-              Přihlásit se
-            </button>
+            ${actionsHtml}
           </div>
         </div>
       `;
@@ -310,11 +504,50 @@ const app = {
     }
   },
 
-  // Zápis nové přihlášky
+  // Zápis nové přihlášky (Admin i samoobslužný zápis studenta)
   openRegisterModal(termId = null) {
     if (termId) {
       document.getElementById('reg-term-id').value = termId;
     }
+
+    const isStudent = this.data.currentRole === 'student';
+    document.getElementById('reg-admin-student-block').style.display = isStudent ? 'none' : 'block';
+    document.getElementById('reg-admin-override-block').style.display = isStudent ? 'none' : 'block';
+    document.getElementById('reg-self-student-block').style.display = isStudent ? 'block' : 'none';
+
+    document.getElementById('modal-register-title').textContent = isStudent
+      ? 'Přihláška na termín kurzu'
+      : 'Zápis studenta na termín kurzu';
+    document.getElementById('btn-submit-register').textContent = isStudent
+      ? 'Odeslat přihlášku'
+      : 'Zapsat přihlášku';
+
+    const studentSelect = document.getElementById('reg-student-id');
+    const fnInput = document.getElementById('self-first-name');
+    const lnInput = document.getElementById('self-last-name');
+    const emInput = document.getElementById('self-email');
+    const phInput = document.getElementById('self-phone');
+
+    studentSelect.required = !isStudent;
+    fnInput.required = isStudent;
+    lnInput.required = isStudent;
+    emInput.required = isStudent;
+
+    if (isStudent) {
+      const currentStudent = this.data.students.find(s => s.id === this.data.currentStudentId);
+      if (currentStudent) {
+        fnInput.value = currentStudent.first_name || '';
+        lnInput.value = currentStudent.last_name || '';
+        emInput.value = currentStudent.email || '';
+        phInput.value = currentStudent.phone || '';
+      } else {
+        fnInput.value = '';
+        lnInput.value = '';
+        emInput.value = '';
+        phInput.value = '';
+      }
+    }
+
     this.updateSelectedTermCapacityInfo();
     document.getElementById('modal-register').classList.add('open');
   },
@@ -326,8 +559,45 @@ const app = {
 
   async submitRegistration(event) {
     event.preventDefault();
-    const studentId = parseInt(document.getElementById('reg-student-id').value);
     const termId = parseInt(document.getElementById('reg-term-id').value);
+
+    if (this.data.currentRole === 'student') {
+      const payload = {
+        first_name: document.getElementById('self-first-name').value.trim(),
+        last_name: document.getElementById('self-last-name').value.trim(),
+        email: document.getElementById('self-email').value.trim(),
+        phone: document.getElementById('self-phone').value.trim() || null,
+        term_id: termId
+      };
+
+      try {
+        const res = await this.fetchJson(`${API_BASE}/registrations/self`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        if (res.status === 'WAITING_LIST') {
+          this.showToast(`Kapacita termínu je plná. Jste zařazen/a do pořadníku náhradníků na pozici č. ${res.queue_position}.`, 'warning');
+        } else {
+          this.showToast('Vaše přihláška na kurz byla úspěšně potvrzena.', 'success');
+        }
+
+        this.closeModal('modal-register');
+        await Promise.all([this.loadStudents(), this.loadTerms()]);
+        this.data.currentStudentId = res.student_id;
+        this.saveProfileState();
+        this.populateProfileSelect();
+        this.populateTermDropdowns();
+        this.populateStudentDropdown();
+        this.updateKPIs();
+        this.switchTab('my_courses');
+      } catch (err) {
+        this.showToast('Chyba přihlášení: ' + err.message, 'error');
+      }
+      return;
+    }
+
+    const studentId = parseInt(document.getElementById('reg-student-id').value);
     const isLate = document.getElementById('reg-force-late').checked;
     const reason = document.getElementById('reg-exception-reason').value;
 
@@ -359,6 +629,107 @@ const app = {
       this.updateKPIs();
     } catch (err) {
       this.showToast('Chyba registrace: ' + err.message, 'error');
+    }
+  },
+
+  // Studentský portál: Moje přihlášky a osvědčení
+  async loadMyCoursesView() {
+    const guestCallout = document.getElementById('my-courses-guest-callout');
+    const tableWrapper = document.getElementById('my-courses-table-wrapper');
+    const tbody = document.getElementById('my-courses-tbody');
+    const subtitle = document.getElementById('my-courses-subtitle');
+
+    const student = this.data.students.find(s => s.id === this.data.currentStudentId);
+    if (!student) {
+      if (guestCallout) guestCallout.style.display = 'flex';
+      if (tableWrapper) tableWrapper.style.display = 'none';
+      if (subtitle) subtitle.textContent = 'Přehled vašich zapsaných kurzů, pořadí v pořadníku náhradníků, docházky a vydaných osvědčení';
+      return;
+    }
+
+    if (guestCallout) guestCallout.style.display = 'none';
+    if (tableWrapper) tableWrapper.style.display = 'block';
+    if (subtitle) subtitle.textContent = `Přihlášený student: ${student.first_name} ${student.last_name} (${student.email})`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Načítám vaše přihlášky...</td></tr>`;
+
+    try {
+      const regs = await this.fetchJson(`${API_BASE}/registrations/student/${student.id}`);
+      if (regs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Zatím nemáte žádné přihlášky na kurzy.</td></tr>`;
+        return;
+      }
+
+      const rows = [];
+      for (const reg of regs) {
+        const term = this.data.terms.find(t => t.id === reg.term_id);
+        let summary = null;
+        if (reg.status === 'CONFIRMED') {
+          try {
+            summary = await this.fetchJson(`${API_BASE}/attendance/summary/${reg.id}`);
+          } catch (_) {
+            summary = null;
+          }
+        }
+        rows.push({ reg, term, summary });
+      }
+
+      tbody.innerHTML = rows.map(({ reg, term, summary }) => {
+        let badgeClass = 'badge-confirmed';
+        let statusText = 'Potvrzeno';
+        if (reg.status === 'WAITING_LIST') {
+          badgeClass = 'badge-waiting';
+          statusText = 'V pořadníku náhradníků';
+        } else if (reg.status === 'CANCELLED') {
+          badgeClass = 'badge-cancelled';
+          statusText = 'Zrušeno';
+        }
+
+        const canCancel = reg.status === 'CONFIRMED' || reg.status === 'WAITING_LIST';
+        const dateStr = term
+          ? `${new Date(term.date_from).toLocaleDateString('cs-CZ')} – ${new Date(term.date_to).toLocaleDateString('cs-CZ')}`
+          : '—';
+        const locationStr = term ? `${term.location}, ${term.classroom}` : '';
+        const pct = summary ? `${(summary.attendance_percentage || 0).toFixed(1)} %` : '—';
+        const certHtml = summary && summary.certificate_number
+          ? `<button class="btn btn-secondary btn-sm" onclick="app.viewCertificate('${summary.certificate_number}')">${summary.certificate_number}</button>`
+          : '<span style="color: var(--text-dim);">Nevydáno</span>';
+
+        return `
+          <tr>
+            <td><strong>${reg.course_name || 'Kurz'}</strong><br><small style="color: var(--text-dim);">${locationStr}</small></td>
+            <td>${dateStr}</td>
+            <td><span class="badge ${badgeClass}">${statusText}</span></td>
+            <td>${reg.queue_position ? `<strong style="color: #b45309;">#${reg.queue_position}</strong>` : '—'}</td>
+            <td>${pct}</td>
+            <td>${certHtml}</td>
+            <td>
+              ${canCancel ? `
+                <button class="btn btn-danger btn-sm" onclick="app.cancelMyRegistration(${reg.id}, '${(reg.course_name || 'kurz').replace(/'/g, '')}')">
+                  Odhlásit se
+                </button>
+              ` : '<span style="color: var(--text-dim); font-size: 0.8rem;">Archivováno</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      this.showToast('Chyba načítání vašich přihlášek: ' + err.message, 'error');
+    }
+  },
+
+  async cancelMyRegistration(regId, courseName) {
+    if (!confirm(`Opravdu se chcete odhlásit z kurzu ${courseName}?`)) return;
+    try {
+      const result = await this.fetchJson(`${API_BASE}/registrations/${regId}/cancel`, {
+        method: 'POST'
+      });
+      this.showToast(result.message || 'Vaše přihláška byla zrušena.', 'info');
+      await this.loadTerms();
+      this.populateTermDropdowns();
+      await this.loadMyCoursesView();
+      this.updateKPIs();
+    } catch (err) {
+      this.showToast('Chyba při odhlášení: ' + err.message, 'error');
     }
   },
 
@@ -503,8 +874,15 @@ const app = {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Načítám docházku a certifikáty...</td></tr>`;
 
     try {
+      let termsToLoad = this.data.terms;
+      if (this.data.currentRole === 'lecturer' && this.data.currentLecturerId) {
+        termsToLoad = this.data.terms.filter(t =>
+          (t.lecturers || []).some(l => l.lecturer_id === this.data.currentLecturerId)
+        );
+      }
+
       let allRows = [];
-      for (const term of this.data.terms) {
+      for (const term of termsToLoad) {
         const regs = await this.fetchJson(`${API_BASE}/registrations/term/${term.id}`);
         for (const reg of regs) {
           if (reg.status === 'CONFIRMED') {

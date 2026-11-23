@@ -164,6 +164,18 @@ Tato sekce průběžně zaznamenává všechna klíčová věcná a architektoni
 
 ---
 
+#### ADR-007: Profilový přepínač rolí a samoobslužný zápis studentů
+* **Datum:** 2026-11-23
+* **Stav:** Schváleno
+* **Kontext:** Podle zadání se účastníci na kurzy přihlašují sami (dříve formulářem do e-mailu) a v systému vystupují tři role: Administrátor, Lektor a Student. Pro účely semestrálního projektu je prioritou snadná demonstrovatelnost všech rolí bez zbytečné režie s JWT/hesly.
+* **Rozhodnutí:**
+  1. Zobrazit v hlavičce jednoduchý přepínač profilu (`Administrátor`, `Lektor` s výběrem lektora, `Student / Zájemce` s výběrem studenta nebo režimem nového zájemce).
+  2. Přidat endpoint `POST /api/v1/registrations/self` (samoobslužná přihláška podle jména a e-mailu; neznámý e-mail automaticky založí studenta, existující profil spáruje) a `GET /api/v1/registrations/student/{student_id}` pro studentský přehled *Moje přihlášky a osvědčení*.
+  3. Omezit viditelnost záložek a akcí podle aktivní role (Lektor vidí své termíny a docházku, Student katalog + své přihlášky/osvědčení, Administrátor kompletní správu).
+* **Důsledky:** Aplikace věrně pokrývá všechny tři role ze zadání bez ukládání hesel v repozitáři (`.env` zůstává v `.gitignore`). Pokryto testem `test_rule_student_self_registration_and_history`.
+
+---
+
 ## 8. Uživatelská příručka a pokyny pro spuštění
 
 Systém je plně kontejnerizován a připraven pro okamžité spuštění a hodnocení.

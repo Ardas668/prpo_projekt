@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="cs">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
 
   <!-- Header -->
@@ -18,6 +20,16 @@
       <h1 class="brand-title">Akademie Trutnov</h1>
     </div>
     <div class="header-actions">
+      <div class="role-switcher">
+        <label for="role-select" class="role-label">Profil:</label>
+        <select id="role-select" class="form-control role-select" onchange="app.onRoleChange()">
+          <option value="admin">Administrátor (Ing. Lucie Bartošová)</option>
+          <option value="lecturer">Lektor</option>
+          <option value="student">Student / Zájemce</option>
+        </select>
+        <select id="profile-select" class="form-control profile-select" onchange="app.onProfileChange()"
+          style="display: none;"></select>
+      </div>
       <button class="btn btn-primary btn-sm" id="btn-quick-register" onclick="app.openRegisterModal()">
         Nová přihláška
       </button>
@@ -26,19 +38,25 @@
 
   <!-- Navigace sekcí -->
   <nav class="nav-bar">
-    <button class="nav-tab active" data-tab="courses" onclick="app.switchTab('courses')">
+    <button class="nav-tab active" data-tab="courses" data-roles="admin,student" onclick="app.switchTab('courses')">
       Katalog kurzů
     </button>
-    <button class="nav-tab" data-tab="terms" onclick="app.switchTab('terms')">
+    <button class="nav-tab" data-tab="terms" data-roles="admin,student,lecturer" id="nav-tab-terms"
+      onclick="app.switchTab('terms')">
       Termíny a kapacity
     </button>
-    <button class="nav-tab" data-tab="registrations" onclick="app.switchTab('registrations')">
+    <button class="nav-tab" data-tab="my_courses" data-roles="student" style="display: none;"
+      onclick="app.switchTab('my_courses')">
+      Moje přihlášky a osvědčení
+    </button>
+    <button class="nav-tab" data-tab="registrations" data-roles="admin" onclick="app.switchTab('registrations')">
       Přihlášky a náhradníci
     </button>
-    <button class="nav-tab" data-tab="attendance_certs" onclick="app.switchTab('attendance_certs')">
+    <button class="nav-tab" data-tab="attendance_certs" data-roles="admin,lecturer"
+      onclick="app.switchTab('attendance_certs')">
       Docházka a osvědčení
     </button>
-    <button class="nav-tab" data-tab="reports" onclick="app.switchTab('reports')">
+    <button class="nav-tab" data-tab="reports" data-roles="admin" onclick="app.switchTab('reports')">
       Manažerské reporty
     </button>
   </nav>
@@ -50,7 +68,11 @@
     <section class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-icon indigo">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
         </div>
         <div class="kpi-info">
           <h3 id="kpi-courses">0</h3>
@@ -59,7 +81,13 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-icon cyan">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
         </div>
         <div class="kpi-info">
           <h3 id="kpi-terms">0</h3>
@@ -68,7 +96,13 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-icon emerald">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
         </div>
         <div class="kpi-info">
           <h3 id="kpi-students">0</h3>
@@ -84,7 +118,7 @@
           <h2>Katalog vzdělávacích kurzů</h2>
           <p>Přehled nabízených rekvalifikačních a firemních kurzů Akademie Trutnov</p>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="app.openNewCourseModal()">
+        <button class="btn btn-secondary btn-sm" data-role="admin" onclick="app.openNewCourseModal()">
           <span>+</span> Vytvořit nový kurz
         </button>
       </div>
@@ -97,15 +131,56 @@
     <section id="tab-terms" class="tab-content" style="display: none;">
       <div class="section-header">
         <div class="section-title">
-          <h2>Termíny kurzů a stav kapacit</h2>
-          <p>Řízení obsazenosti učeben, střídání lektorů a nepřekročitelných limitů</p>
+          <h2 id="terms-section-title">Termíny kurzů a stav kapacit</h2>
+          <p id="terms-section-desc">Řízení obsazenosti učeben, střídání lektorů a nepřekročitelných limitů</p>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="app.openNewTermModal()">
+        <button class="btn btn-secondary btn-sm" data-role="admin" onclick="app.openNewTermModal()">
           <span>+</span> Vytvořit nový termín
         </button>
       </div>
       <div class="cards-grid" id="terms-grid">
         <!-- Generováno dynamicky -->
+      </div>
+    </section>
+
+    <!-- TAB STUDENT: Moje přihlášky a osvědčení -->
+    <section id="tab-my_courses" class="tab-content" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Moje přihlášky a osvědčení</h2>
+          <p id="my-courses-subtitle">Přehled vašich zapsaných kurzů, pořadí v pořadníku náhradníků, docházky a vydaných osvědčení</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="app.openRegisterModal()">
+          <span>+</span> Přihlásit se na další kurz
+        </button>
+      </div>
+
+      <div id="my-courses-guest-callout" class="callout" style="display: none;">
+        <div>
+          <div class="callout-title">Nejste vybrán/a jako existující student</div>
+          <div class="callout-desc">
+            Vyberte své jméno v horním přepínači profilu, nebo klikněte na <strong>Přihlásit se na další kurz</strong> a odešlete novou přihlášku – profil se vám vytvoří automaticky.
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrapper" id="my-courses-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Kurz a termín</th>
+              <th>Datum konání</th>
+              <th>Stav přihlášky</th>
+              <th>Pořadí v pořadníku</th>
+              <th>Docházka (%)</th>
+              <th>Osvědčení</th>
+              <th>Akce</th>
+            </tr>
+          </thead>
+          <tbody id="my-courses-tbody">
+            <!-- Dynamicky generováno -->
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -121,7 +196,8 @@
             <span>+</span> Založit studenta
           </button>
           <label for="filter-term" style="font-size: 0.85rem; color: var(--text-muted);">Zobrazit pro termín:</label>
-          <select id="filter-term" class="form-control" style="width: auto;" onchange="app.loadRegistrationsForSelectedTerm()">
+          <select id="filter-term" class="form-control" style="width: auto;"
+            onchange="app.loadRegistrationsForSelectedTerm()">
             <!-- Dynamicky naplněné termíny -->
           </select>
           <button class="btn btn-primary btn-sm" onclick="app.openRegisterModal()">
@@ -164,7 +240,7 @@
       <div class="section-header">
         <div class="section-title">
           <h2>Evidence docházky & Vydávání osvědčení</h2>
-          <p>Podmínka pro certifikát: účast $\ge 70\%$ + schválení lektorem. Osvědčení má unikátní a neměnné číslo.</p>
+          <p id="attendance-section-desc">Podmínka pro certifikát: účast ≥ 70 % + schválení lektorem. Osvědčení má unikátní a neměnné číslo.</p>
         </div>
       </div>
 
@@ -267,37 +343,71 @@
 
   </main>
 
-  <!-- Modal: Nová přihláška -->
+  <!-- Modal: Nová přihláška (Admin i Samoobslužný zápis studenta) -->
   <div class="modal-overlay" id="modal-register">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>Zápis studenta na termín kurzu</h3>
+        <h3 id="modal-register-title">Zápis studenta na termín kurzu</h3>
         <button class="btn-close" onclick="app.closeModal('modal-register')">&times;</button>
       </div>
       <div class="modal-body">
         <form id="form-register" onsubmit="app.submitRegistration(event)">
-          <div class="form-group">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-              <label class="form-label" style="margin-bottom: 0;">Student</label>
-              <button type="button" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;" onclick="app.openNewStudentModal()">+ Nový student</button>
+          <!-- Režim Administrátor: výběr existujícího studenta -->
+          <div id="reg-admin-student-block">
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label class="form-label" style="margin-bottom: 0;">Student</label>
+                <button type="button" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;"
+                  onclick="app.openNewStudentModal()">+ Nový student</button>
+              </div>
+              <select id="reg-student-id" class="form-control"></select>
             </div>
-            <select id="reg-student-id" class="form-control" required></select>
           </div>
+
+          <!-- Režim Student: samoobslužná přihláška -->
+          <div id="reg-self-student-block" style="display: none;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Vaše jméno</label>
+                <input type="text" id="self-first-name" class="form-control" placeholder="Např. Jan">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Vaše příjmení</label>
+                <input type="text" id="self-last-name" class="form-control" placeholder="Např. Novák">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">E-mail (slouží ke spárování profilu)</label>
+              <input type="email" id="self-email" class="form-control" placeholder="jan.novak@example.cz">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefon (volitelné)</label>
+              <input type="tel" id="self-phone" class="form-control" placeholder="+420 777 000 000">
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Termín kurzu</label>
-            <select id="reg-term-id" class="form-control" required onchange="app.updateSelectedTermCapacityInfo()"></select>
+            <select id="reg-term-id" class="form-control" required
+              onchange="app.updateSelectedTermCapacityInfo()"></select>
             <div id="reg-term-info" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
           </div>
-          <div class="form-group">
-            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
-              <input type="checkbox" id="reg-force-late" onchange="document.getElementById('group-exception-reason').style.display = this.checked ? 'block' : 'none'">
-              Povolit zápis po zahájení termínu (výjimka administrátora)
-            </label>
+
+          <div id="reg-admin-override-block">
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="reg-force-late"
+                  onchange="document.getElementById('group-exception-reason').style.display = this.checked ? 'block' : 'none'">
+                Povolit zápis po zahájení termínu (výjimka administrátora)
+              </label>
+            </div>
+            <div class="form-group" id="group-exception-reason" style="display: none;">
+              <label class="form-label">Důvod udělení výjimky (povinné pro audit)</label>
+              <input type="text" id="reg-exception-reason" class="form-control"
+                placeholder="Např. Dodatečně schváleno ředitelkou centra">
+            </div>
           </div>
-          <div class="form-group" id="group-exception-reason" style="display: none;">
-            <label class="form-label">Důvod udělení výjimky (povinné pro audit)</label>
-            <input type="text" id="reg-exception-reason" class="form-control" placeholder="Např. Dodatečně schváleno ředitelkou centra">
-          </div>
+
           <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -1rem;">
             <button type="button" class="btn btn-secondary" onclick="app.closeModal('modal-register')">Zrušit</button>
             <button type="submit" class="btn btn-primary" id="btn-submit-register">Zapsat přihlášku</button>
@@ -318,11 +428,13 @@
         <form id="form-course" onsubmit="app.submitNewCourse(event)">
           <div class="form-group">
             <label class="form-label">Název kurzu</label>
-            <input type="text" id="new-course-name" class="form-control" placeholder="Např. Pokročilá datová analýza" required>
+            <input type="text" id="new-course-name" class="form-control" placeholder="Např. Pokročilá datová analýza"
+              required>
           </div>
           <div class="form-group">
             <label class="form-label">Anotace (popis obsahu)</label>
-            <textarea id="new-course-annotation" class="form-control" rows="3" placeholder="Popis kurzu a cílové skupiny"></textarea>
+            <textarea id="new-course-annotation" class="form-control" rows="3"
+              placeholder="Popis kurzu a cílové skupiny"></textarea>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
@@ -375,7 +487,8 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
               <label class="form-label">Místo / lokalita</label>
-              <input type="text" id="new-term-location" class="form-control" placeholder="Např. Trutnov - Centrum" required>
+              <input type="text" id="new-term-location" class="form-control" placeholder="Např. Trutnov - Centrum"
+                required>
             </div>
             <div class="form-group">
               <label class="form-label">Učebna</label>
@@ -388,7 +501,8 @@
           </div>
           <div class="form-group">
             <label class="form-label">Přiřazení lektorů a rozpad hodin (střídání externistů)</label>
-            <div id="new-term-lecturers-list" style="display: flex; flex-direction: column; gap: 0.5rem; background: rgba(15, 23, 42, 0.4); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); max-height: 180px; overflow-y: auto;">
+            <div id="new-term-lecturers-list"
+              style="display: flex; flex-direction: column; gap: 0.5rem; background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); max-height: 180px; overflow-y: auto;">
               <!-- Dynamicky naplněné checkbox řádky -->
             </div>
           </div>
@@ -476,4 +590,5 @@
 
   <script src="/static/app.js"></script>
 </body>
+
 </html>

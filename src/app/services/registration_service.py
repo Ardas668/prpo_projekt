@@ -6,12 +6,57 @@ from src.app.models.registration import Registration
 from src.app.models.term import Term
 from src.app.models.student import Student
 from src.app.models.enums import RegistrationStatus
-from src.app.schemas.registration import RegistrationCreate, RegistrationResponse, RegistrationCancelResponse
+from src.app.schemas.registration import (
+    RegistrationCreate,
+    SelfRegistrationCreate,
+    RegistrationResponse,
+    RegistrationCancelResponse,
+)
 
 class RegistrationService:
     @staticmethod
     def get_by_term(db: Session, term_id: int) -> list[Registration]:
         return db.query(Registration).filter(Registration.term_id == term_id).all()
+
+    @staticmethod
+    def get_by_student(db: Session, student_id: int) -> list[Registration]:
+        return (
+            db.query(Registration)
+            .filter(Registration.student_id == student_id)
+            .order_by(Registration.created_at.desc())
+            .all()
+        )
+
+    @staticmethod
+    def self_register(db: Session, reg_in: SelfRegistrationCreate) -> RegistrationResponse:
+        normalized_email = reg_in.email.strip().lower()
+        student = (
+            db.query(Student)
+            .filter(func.lower(Student.email) == normalized_email)
+            .first()
+        )
+        if not student:
+            student = Student(
+                first_name=reg_in.first_name.strip(),
+                last_name=reg_in.last_name.strip(),
+                email=normalized_email,
+                phone=reg_in.phone.strip() if reg_in.phone else None,
+            )
+            db.add(student)
+            db.flush()
+        elif reg_in.phone and not student.phone:
+            student.phone = reg_in.phone.strip()
+            db.flush()
+
+        return RegistrationService.register_student(
+            db,
+            RegistrationCreate(
+                student_id=student.id,
+                term_id=reg_in.term_id,
+                admin_override=False,
+                admin_override_reason=None,
+            ),
+        )
 
     @staticmethod
     def register_student(db: Session, reg_in: RegistrationCreate) -> RegistrationResponse:
@@ -167,5 +212,6 @@ class RegistrationService:
             admin_override=reg.admin_override,
             admin_override_reason=reg.admin_override_reason,
             student_name=f"{reg.student.first_name} {reg.student.last_name}" if reg.student else None,
+            student_email=reg.student.email if reg.student else None,
             course_name=reg.term.course.name if reg.term and reg.term.course else None
         )
