@@ -132,6 +132,17 @@ Tato sekce průběžně zaznamenává všechna klíčová věcná a architektoni
   5. *Rozpad hodin při střídání lektorů:* Využití vazební tabulky `TermLecturer` s explicitní evidencí odučených hodin (`taught_hours`) pro každého lektora v termínu.
 * **Důsledky:** Doménový model obsahuje 7 tabulek/entit: `Course`, `Term`, `Lecturer`, `TermLecturer` (M:N), `Student`, `Registration` (M:N), `Attendance` a `Certificate`.
 
+#### ADR-004: Implementace grafického rozhraní (Frontend UI Dashboard)
+* **Datum:** 2026-10-19
+* **Stav:** Schváleno
+* **Kontext:** Uživatel požaduje vizuální prezentaci informačního systému na kořenové adrese (`http://localhost:8000/`) namísto pouhého přesměrování na technickou Swagger UI dokumentaci.
+* **Rozhodnutí:** Realizovat moderní Single-Page Dashboard postavený na HTML5, Vanilla CSS (design tokens, dark/light podpora, mikroanimace, glassmorphism) a JavaScriptu ES6, servírovaný přímo aplikací FastAPI jako statická aplikace.
+* **Důsledky:**
+  * Kořenová adresa `/` otevírá plnohodnotné rozhraní Akademie Trutnov (katalog kurzů, termíny s kapacitami, FIFO pořadník s demonstrací automatického posunu při zrušení přihlášky, docházka, vydávání osvědčení a manažerské reporty).
+  * API dokumentace zůstává nedotčena a dostupná na `/docs` a `/redoc`.
+  * Není nutné přidávat Node.js ani další servisní kontejner do `docker-compose.yml`.
+
 ---
 
-*(Další rozhodnutí ADR-004 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem.)*
+*(Další rozhodnutí ADR-005 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem.)*
+

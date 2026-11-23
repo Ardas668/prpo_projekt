@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Akademie Trutnov – Informační systém kurzů</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-mark">AT</div>
+      <h1 class="brand-title">Akademie Trutnov</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary btn-sm" id="btn-quick-register" onclick="app.openRegisterModal()">
+        Nová přihláška
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigace sekcí -->
+  <nav class="nav-bar">
+    <button class="nav-tab active" data-tab="courses" onclick="app.switchTab('courses')">
+      Katalog kurzů
+    </button>
+    <button class="nav-tab" data-tab="terms" onclick="app.switchTab('terms')">
+      Termíny a kapacity
+    </button>
+    <button class="nav-tab" data-tab="registrations" onclick="app.switchTab('registrations')">
+      Přihlášky a FIFO pořadník
+    </button>
+    <button class="nav-tab" data-tab="attendance_certs" onclick="app.switchTab('attendance_certs')">
+      Docházka a osvědčení
+    </button>
+    <button class="nav-tab" data-tab="reports" onclick="app.switchTab('reports')">
+      Manažerské reporty
+    </button>
+  </nav>
+
+  <!-- Hlavní obsah -->
+  <main class="main-content">
+
+    <!-- KPI přehledové statistiky -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon indigo">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        </div>
+        <div class="kpi-info">
+          <h3 id="kpi-courses">0</h3>
+          <p>Dostupných kurzů</p>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon cyan">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        </div>
+        <div class="kpi-info">
+          <h3 id="kpi-terms">0</h3>
+          <p>Otevřených termínů</p>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon emerald">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+        <div class="kpi-info">
+          <h3 id="kpi-students">0</h3>
+          <p>Aktivních studentů</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 1: Katalog kurzů -->
+    <section id="tab-courses" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Katalog vzdělávacích kurzů</h2>
+          <p>Přehled nabízených rekvalifikačních a firemních kurzů Akademie Trutnov</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="app.openNewCourseModal()">
+          <span>+</span> Vytvořit nový kurz
+        </button>
+      </div>
+      <div class="cards-grid" id="courses-grid">
+        <!-- Generováno dynamicky -->
+      </div>
+    </section>
+
+    <!-- TAB 2: Termíny a Kapacity -->
+    <section id="tab-terms" class="tab-content" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Termíny kurzů a stav kapacit</h2>
+          <p>Řízení obsazenosti učeben, střídání lektorů a nepřekročitelných limitů</p>
+        </div>
+      </div>
+      <div class="cards-grid" id="terms-grid">
+        <!-- Generováno dynamicky -->
+      </div>
+    </section>
+
+    <!-- TAB 3: Přihlášky & FIFO Pořadník -->
+    <section id="tab-registrations" class="tab-content" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Správa přihlášek a FIFO pořadník náhradníků</h2>
+          <p>Předvedení striktního limitu kapacity, automatického zařazení do fronty a posunu při odhlášení</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <label for="filter-term" style="font-size: 0.85rem; color: var(--text-muted);">Zobrazit pro termín:</label>
+          <select id="filter-term" class="form-control" style="width: auto;" onchange="app.loadRegistrationsForSelectedTerm()">
+            <!-- Dynamicky naplněné termíny -->
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="app.openRegisterModal()">
+            <span>+</span> Přihlásit studenta
+          </button>
+        </div>
+      </div>
+
+      <div class="callout callout-amber" id="waiting-list-info" style="display: none;">
+        <div>
+          <div class="callout-title">Aktivní čekací listina (FIFO)</div>
+          <div class="callout-desc" id="waiting-list-text">
+            Kapacita termínu je plně vyčerpána. Následující zájemci jsou zařazeni v přesném pořadí náhradníků.
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Student</th>
+              <th>Kontakt</th>
+              <th>Datum registrace</th>
+              <th>Stav přihlášky</th>
+              <th>Pořadí v FIFO</th>
+              <th>Akce</th>
+            </tr>
+          </thead>
+          <tbody id="registrations-tbody">
+            <!-- Dynamicky generováno -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 4: Docházka & Osvědčení -->
+    <section id="tab-attendance_certs" class="tab-content" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Evidence docházky & Vydávání osvědčení</h2>
+          <p>Podmínka pro certifikát: účast $\ge 70\%$ + schválení lektorem. Osvědčení má unikátní a neměnné číslo.</p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Termín / Kurz</th>
+              <th>Stav registrace</th>
+              <th>Docházka (%)</th>
+              <th>Schválení lektorem</th>
+              <th>Číslo osvědčení</th>
+              <th>Akce</th>
+            </tr>
+          </thead>
+          <tbody id="attendance-tbody">
+            <!-- Dynamicky generováno -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 5: Manažerské reporty -->
+    <section id="tab-reports" class="tab-content" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Manažerské reporty Akademie Trutnov</h2>
+          <p>Přehledy naplněnosti kapacit, odučených hodin lektorů a vícekurzových studentů</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="app.loadReports()">
+          Obnovit data
+        </button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
+        <!-- Report 1: Naplněnost kapacit -->
+        <div class="card">
+          <div class="card-title">Vytížení kapacit termínů</div>
+          <div class="table-wrapper" style="border: none;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Termín</th>
+                  <th>Kapacita</th>
+                  <th>Zapsáno</th>
+                  <th>Čeká</th>
+                  <th>Obsazenost</th>
+                </tr>
+              </thead>
+              <tbody id="report-occupancy-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Report 2: Hodiny lektorů -->
+        <div class="card">
+          <div class="card-title">Odučené hodiny lektorů</div>
+          <div class="table-wrapper" style="border: none;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Lektor</th>
+                  <th>Počet termínů</th>
+                  <th>Celkem hodin</th>
+                </tr>
+              </thead>
+              <tbody id="report-lecturers-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Report 3: Vícekurzoví studenti -->
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-title">Studenti zapsaní na více kurzů v roce 2026/2027</div>
+          <div class="table-wrapper" style="border: none;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>E-mail</th>
+                  <th>Počet kurzů</th>
+                  <th>Názvy zapsaných kurzů</th>
+                </tr>
+              </thead>
+              <tbody id="report-students-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Nová přihláška -->
+  <div class="modal-overlay" id="modal-register">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Zápis studenta na termín kurzu</h3>
+        <button class="btn-close" onclick="app.closeModal('modal-register')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-register" onsubmit="app.submitRegistration(event)">
+          <div class="form-group">
+            <label class="form-label">Student</label>
+            <select id="reg-student-id" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Termín kurzu</label>
+            <select id="reg-term-id" class="form-control" required onchange="app.updateSelectedTermCapacityInfo()"></select>
+            <div id="reg-term-info" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
+          </div>
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="reg-force-late" onchange="document.getElementById('group-exception-reason').style.display = this.checked ? 'block' : 'none'">
+              Povolit zápis po zahájení termínu (výjimka administrátora)
+            </label>
+          </div>
+          <div class="form-group" id="group-exception-reason" style="display: none;">
+            <label class="form-label">Důvod udělení výjimky (povinné pro audit)</label>
+            <input type="text" id="reg-exception-reason" class="form-control" placeholder="Např. Dodatečně schváleno ředitelkou centra">
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -1rem;">
+            <button type="button" class="btn btn-secondary" onclick="app.closeModal('modal-register')">Zrušit</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-register">Zapsat přihlášku</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nový kurz -->
+  <div class="modal-overlay" id="modal-course">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Vytvořit nový vzdělávací kurz</h3>
+        <button class="btn-close" onclick="app.closeModal('modal-course')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-course" onsubmit="app.submitNewCourse(event)">
+          <div class="form-group">
+            <label class="form-label">Název kurzu</label>
+            <input type="text" id="new-course-name" class="form-control" placeholder="Např. Pokročilá datová analýza" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Anotace (popis obsahu)</label>
+            <textarea id="new-course-annotation" class="form-control" rows="3" placeholder="Popis kurzu a cílové skupiny"></textarea>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Hodinový rozsah</label>
+              <input type="number" id="new-course-hours" class="form-control" value="32" min="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cena kurzu (Kč)</label>
+              <input type="number" id="new-course-price" class="form-control" value="9900" min="0" step="100" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="new-course-accredited" checked>
+              Akreditovaný kurz (umožňuje vydání oficiálního certifikátu)
+            </label>
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -1rem;">
+            <button type="button" class="btn btn-secondary" onclick="app.closeModal('modal-course')">Zrušit</button>
+            <button type="submit" class="btn btn-primary">Uložit kurz</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Grafické Osvědčení -->
+  <div class="modal-overlay" id="modal-certificate">
+    <div class="modal-box" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3>Oficiální osvědčení o absolvování</h3>
+        <button class="btn-close" onclick="app.closeModal('modal-certificate')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="certificate-frame">
+          <div class="cert-heading">Osvědčení o rekvalifikaci</div>
+          <div class="cert-sub">Akademie Trutnov, Vzdělávací centrum</div>
+          <div class="cert-text">Tímto se potvrzuje, že účastník/ice</div>
+          <div class="cert-student" id="cert-view-student">Student Name</div>
+          <div class="cert-text">úspěšně absolvoval/a vzdělávací program</div>
+          <div class="cert-course" id="cert-view-course">Název kurzu</div>
+          <div class="cert-footer">
+            <div>
+              Evidenční číslo: <strong id="cert-view-number" style="color: #fbbf24;">AT-2026-0001</strong><br>
+              Datum vystavení: <span id="cert-view-date">19. 10. 2026</span>
+            </div>
+            <div style="text-align: right;">
+              Stav: <strong>Platné & Neměnné</strong><br>
+              Vydal: <strong>Ing. Lucie Bartošová</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="window.print()">Vytisknout</button>
+        <button type="button" class="btn btn-primary" onclick="app.closeModal('modal-certificate')">Zavřít</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifikace -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
