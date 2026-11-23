@@ -58,11 +58,14 @@ class AttendanceService:
 
         pct = (attended / total * 100.0) if total > 0 else 0.0
 
+        cert = reg.certificate
         return AttendanceSummaryResponse(
             registration_id=reg.id,
             student_name=f"{reg.student.first_name} {reg.student.last_name}" if reg.student else "Neznámý",
             total_days=total,
             attended_days=attended,
             attendance_percentage=round(pct, 2),
-            meets_minimum_requirement=(pct >= 70.0)
+            meets_minimum_requirement=(pct >= 70.0),
+            lecturer_approved=(cert is not None),
+            certificate_number=cert.certificate_number if cert else None,
         )

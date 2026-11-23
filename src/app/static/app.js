@@ -911,7 +911,7 @@ const app = {
       tbody.innerHTML = allRows.map(({ term, reg, summary }) => {
         const course = this.data.courses.find(c => c.id === term.course_id) || { name: 'Kurz' };
         const pct = summary.attendance_percentage || 0;
-        const qualifies = summary.qualifies_for_certificate;
+        const qualifies = summary.meets_minimum_requirement;
 
         return `
           <tr>
@@ -968,7 +968,7 @@ const app = {
         body: JSON.stringify({
           registration_id: regId,
           records: [
-            { lesson_date: today, hours_attended: 40, is_present: true }
+            { date: today, is_present: true, note: 'Prezenční účast potvrzena lektorem' }
           ]
         })
       });
@@ -1018,10 +1018,10 @@ const app = {
       const occTbody = document.getElementById('report-occupancy-tbody');
       occTbody.innerHTML = occ.map(item => `
         <tr>
-          <td><strong>${item.course_name}</strong><br><small style="color: var(--text-dim);">${item.location}</small></td>
+          <td><strong>${item.course_name}</strong><br><small style="color: var(--text-dim);">${new Date(item.date_from).toLocaleDateString('cs-CZ')} – ${new Date(item.date_to).toLocaleDateString('cs-CZ')}</small></td>
           <td>${item.capacity}</td>
-          <td><strong style="color: #34d399;">${item.confirmed_count}</strong></td>
-          <td><strong style="color: #fbbf24;">${item.waiting_count}</strong></td>
+          <td><strong style="color: #16a34a;">${item.confirmed_count}</strong></td>
+          <td><strong style="color: #d97706;">${item.waiting_count}</strong></td>
           <td>${item.occupancy_percentage.toFixed(1)} %</td>
         </tr>
       `).join('');
@@ -1029,13 +1029,16 @@ const app = {
       // 2. Lecturer hours report
       const lecs = await this.fetchJson(`${API_BASE}/reports/lecturer-hours`);
       const lecTbody = document.getElementById('report-lecturers-tbody');
-      lecTbody.innerHTML = lecs.map(item => `
-        <tr>
-          <td><strong>${item.lecturer_name}</strong><br><small style="color: var(--text-dim);">${item.email}</small></td>
-          <td>${item.total_terms}</td>
-          <td><strong style="color: var(--accent);">${item.total_hours} hod.</strong></td>
-        </tr>
-      `).join('');
+      lecTbody.innerHTML = lecs.map(item => {
+        const lecObj = this.data.lecturers.find(l => l.id === item.lecturer_id);
+        return `
+          <tr>
+            <td><strong>${item.lecturer_name}</strong><br><small style="color: var(--text-dim);">${lecObj ? lecObj.email : ''}</small></td>
+            <td>${item.terms_count}</td>
+            <td><strong style="color: var(--accent);">${item.total_hours_taught} hod.</strong></td>
+          </tr>
+        `;
+      }).join('');
 
       // 3. Multi-course students report
       const multi = await this.fetchJson(`${API_BASE}/reports/multi-course-students?year=2026`);
@@ -1047,7 +1050,7 @@ const app = {
           <tr>
             <td><strong>${item.student_name}</strong></td>
             <td>${item.email}</td>
-            <td><strong style="color: #34d399;">${item.course_count}</strong></td>
+            <td><strong style="color: #16a34a;">${item.courses_count}</strong></td>
             <td>${item.courses.join(', ')}</td>
           </tr>
         `).join('');
@@ -1073,9 +1076,9 @@ const app = {
   async exportOccupancyCSV() {
     try {
       const occ = await this.fetchJson(`${API_BASE}/reports/occupancy`);
-      let csv = 'Termín ID;Kurz;Lokalita;Kapacita;Potvrzeno (zapsáno);Čekající (FIFO);Obsazenost (%)\n';
+      let csv = 'Termín ID;Kurz;Od;Do;Kapacita;Potvrzeno (zapsáno);Čekající v pořadníku;Obsazenost (%)\n';
       occ.forEach(item => {
-        csv += `${item.term_id};"${item.course_name}";"${item.location}";${item.capacity};${item.confirmed_count};${item.waiting_count};${item.occupancy_percentage.toFixed(1)}\n`;
+        csv += `${item.term_id};"${item.course_name}";"${item.date_from}";"${item.date_to}";${item.capacity};${item.confirmed_count};${item.waiting_count};${item.occupancy_percentage.toFixed(1)}\n`;
       });
       this.downloadCSV('akademie_trutnov_obsazenost_terminu.csv', csv);
       this.showToast('CSV export obsazenosti byl stažen.', 'success');
@@ -1087,9 +1090,9 @@ const app = {
   async exportLecturersCSV() {
     try {
       const lecs = await this.fetchJson(`${API_BASE}/reports/lecturer-hours`);
-      let csv = 'Lektor;E-mail;Počet termínů;Odučené hodiny celkem\n';
+      let csv = 'Lektor;Počet termínů;Odučené hodiny celkem\n';
       lecs.forEach(item => {
-        csv += `"${item.lecturer_name}";"${item.email}";${item.total_terms};${item.total_hours}\n`;
+        csv += `"${item.lecturer_name}";${item.terms_count};${item.total_hours_taught}\n`;
       });
       this.downloadCSV('akademie_trutnov_hodiny_lektoru.csv', csv);
       this.showToast('CSV export hodin lektorů byl stažen.', 'success');

@@ -25,3 +25,5 @@ class AttendanceSummaryResponse(BaseModel):
     attended_days: int
     attendance_percentage: float
     meets_minimum_requirement: bool  # >= 70 %
+    lecturer_approved: bool = False
+    certificate_number: str | None = None
