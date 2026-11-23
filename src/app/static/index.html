@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=20261123">
 </head>
 
 <body>
@@ -20,28 +20,26 @@
       <h1 class="brand-title">Akademie Trutnov</h1>
     </div>
     <div class="header-actions">
-      <div class="role-switcher">
-        <label for="role-select" class="role-label">Profil:</label>
-        <select id="role-select" class="form-control role-select" onchange="app.onRoleChange()">
-          <option value="admin">Administrátor (Ing. Lucie Bartošová)</option>
-          <option value="lecturer">Lektor</option>
-          <option value="student">Student / Zájemce</option>
-        </select>
-        <select id="profile-select" class="form-control profile-select" onchange="app.onProfileChange()"
-          style="display: none;"></select>
+      <div class="user-session-bar" id="user-session-bar" style="display: none;">
+        <span class="role-badge" id="user-role-badge">Role</span>
+        <span class="user-name" id="user-full-name">Uživatel</span>
+        <button class="btn btn-secondary btn-sm" onclick="app.logout()">Odhlásit se</button>
       </div>
       <button class="btn btn-primary btn-sm" id="btn-quick-register" onclick="app.openRegisterModal()">
-        Nová přihláška
+        Přihlásit se na kurz
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btn-open-login" onclick="app.openLoginModal()">
+        Přihlásit se
       </button>
     </div>
   </header>
 
   <!-- Navigace sekcí -->
   <nav class="nav-bar">
-    <button class="nav-tab active" data-tab="courses" data-roles="admin,student" onclick="app.switchTab('courses')">
+    <button class="nav-tab active" data-tab="courses" data-roles="guest,student,admin" onclick="app.switchTab('courses')">
       Katalog kurzů
     </button>
-    <button class="nav-tab" data-tab="terms" data-roles="admin,student,lecturer" id="nav-tab-terms"
+    <button class="nav-tab" data-tab="terms" data-roles="guest,student,lecturer,admin" id="nav-tab-terms"
       onclick="app.switchTab('terms')">
       Termíny a kapacity
     </button>
@@ -49,14 +47,16 @@
       onclick="app.switchTab('my_courses')">
       Moje přihlášky a osvědčení
     </button>
-    <button class="nav-tab" data-tab="registrations" data-roles="admin" onclick="app.switchTab('registrations')">
+    <button class="nav-tab" data-tab="registrations" data-roles="admin" style="display: none;"
+      onclick="app.switchTab('registrations')">
       Přihlášky a náhradníci
     </button>
-    <button class="nav-tab" data-tab="attendance_certs" data-roles="admin,lecturer"
+    <button class="nav-tab" data-tab="attendance_certs" data-roles="admin,lecturer" style="display: none;"
       onclick="app.switchTab('attendance_certs')">
       Docházka a osvědčení
     </button>
-    <button class="nav-tab" data-tab="reports" data-roles="admin" onclick="app.switchTab('reports')">
+    <button class="nav-tab" data-tab="reports" data-roles="admin" style="display: none;"
+      onclick="app.switchTab('reports')">
       Manažerské reporty
     </button>
   </nav>
@@ -94,7 +94,7 @@
           <p>Otevřených termínů</p>
         </div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-role="admin" style="display: none;">
         <div class="kpi-icon emerald">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -585,10 +585,56 @@
     </div>
   </div>
 
+  <!-- Modal: Přihlášení (Login) -->
+  <div class="modal-overlay" id="modal-login">
+    <div class="modal-box" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>Přihlášení do systému</h3>
+        <button class="btn-close" onclick="app.closeModal('modal-login')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-login" onsubmit="app.submitLogin(event)">
+          <div class="form-group">
+            <label class="form-label">E-mail</label>
+            <input type="email" id="login-email" class="form-control" placeholder="uzivatel@akademietrutnov.cz" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Heslo</label>
+            <input type="password" id="login-password" class="form-control" placeholder="Zadejte heslo" required>
+          </div>
+          <div id="login-error" style="display: none; color: var(--danger); font-size: 0.85rem; margin-bottom: 1rem;"></div>
+          <div class="demo-accounts-box">
+            <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem;">
+              Ukázkové účty (kliknutím vyplníte e-mail, hesla jsou v <code>.env</code>):
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;"
+                onclick="document.getElementById('login-email').value='martin.dvorak@example.cz'; document.getElementById('login-password').focus();">
+                Student (Martin Dvořák)
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;"
+                onclick="document.getElementById('login-email').value='petr.novak@akademietrutnov.cz'; document.getElementById('login-password').focus();">
+                Lektor (Petr Novák)
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;"
+                onclick="document.getElementById('login-email').value='admin@akademietrutnov.cz'; document.getElementById('login-password').focus();">
+                Administrátor
+              </button>
+            </div>
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -1rem; margin-top: 1rem;">
+            <button type="button" class="btn btn-secondary" onclick="app.closeModal('modal-login')">Zrušit</button>
+            <button type="submit" class="btn btn-primary">Přihlásit se</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notifikace -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20261123"></script>
 </body>
 
 </html>

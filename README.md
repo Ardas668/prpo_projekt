@@ -176,6 +176,18 @@ Tato sekce průběžně zaznamenává všechna klíčová věcná a architektoni
 
 ---
 
+#### ADR-008: Jednoduchý login podle rolí a zákaz cachování statických souborů
+* **Datum:** 2026-11-23
+* **Stav:** Schváleno
+* **Kontext:** Otevřený přepínač rolí v hlavičce umožňoval libovolně přepnout na administrátora bez autentizace. Zároveň cachování statického `app.js` v prohlížeči způsobovalo načítání zastaralého rozhraní.
+* **Rozhodnutí:**
+  1. Nahradit přepínač rolí jednoduchým přihlašovacím formulářem (`POST /api/v1/auth/login`) s e-mailem a heslem; výchozí stav je nepřihlášený návštěvník (vidí jen veřejný katalog a termíny).
+  2. Přihlašovací hesla spravovat přes `.env` (šablona v `.env.example`, lokální `.env` je v `.gitignore`).
+  3. Přidat HTTP middleware nastavující `Cache-Control: no-store` pro `/` a `/static/*` a verzovací parametr `?v=...` v HTML.
+* **Důsledky:** Přísné oddělení oprávnění pro Návštěvníka, Studenta, Lektora a Administrátora, čisté testování v prohlížeči bez problémů s cache. Pokryto testem `test_auth_login_roles_and_rejection`.
+
+---
+
 ## 8. Uživatelská příručka a pokyny pro spuštění
 
 Systém je plně kontejnerizován a připraven pro okamžité spuštění a hodnocení.
@@ -192,6 +204,12 @@ Po spuštění jsou k dispozici tyto adresy:
 * **Webový Dashboard Akademie Trutnov:** [http://localhost:8000/](http://localhost:8000/)
 * **Interaktivní API dokumentace (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Alternativní dokumentace (ReDoc):** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+### 8.1.1 Přihlášení a testovací role
+Výchozí hesla pro lokální spuštění jsou konfigurovatelná v lokálním souboru `.env` (viz šablona `.env.example`; soubor `.env` je v `.gitignore` a není součástí repozitáře):
+* **Administrátor:** `admin@akademietrutnov.cz` (heslo `ADMIN_PASSWORD` z `.env`, výchozí `admin123`) – plná správa kurzů, termínů, přihlášek, docházky, osvědčení a reportů.
+* **Lektor:** např. `petr.novak@akademietrutnov.cz` nebo `jana.svobodova@akademietrutnov.cz` (heslo `LECTURER_DEMO_PASSWORD`, výchozí `lektor123`) – pouze vlastní přidělené termíny a jejich docházka/osvědčení.
+* **Student:** např. `martin.dvorak@example.cz` nebo `alena.cerna@example.cz` (heslo `STUDENT_DEMO_PASSWORD`, výchozí `student123`) – katalog kurzů, samoobslužný zápis a záložka *Moje přihlášky a osvědčení*.
 
 Zastavení aplikace:
 ```bash

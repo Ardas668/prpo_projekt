@@ -1,11 +1,12 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from src.app.core.config import settings
 from src.app.core.database import engine, Base
 from src.app.api.v1.endpoints import (
+    auth,
     courses,
     terms,
     lecturers,
@@ -46,6 +47,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def disable_static_cache(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -66,6 +75,7 @@ def health_check():
     }
 
 api_prefix = settings.API_V1_STR
+app.include_router(auth.router, prefix=api_prefix)
 app.include_router(courses.router, prefix=api_prefix)
 app.include_router(terms.router, prefix=api_prefix)
 app.include_router(lecturers.router, prefix=api_prefix)

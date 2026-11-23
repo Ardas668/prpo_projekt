@@ -9,7 +9,7 @@ Tento dokument definuje lokální pravidla, metodiku a mantinely pro AI asistent
 Jde o vývoj informačního systému pro vzdělávací centrum (Akademie Trutnov) v rámci předmětu **Pokročilé programování (PPRO)** na FIM UHK (ZS 2026/2027). Aplikace pokrývá správu kurzů, termínů, lektorů, účastníků, nepřekročitelných kapacit, pořadníku zájemců, docházky a vydávání unikátních osvědčení.
 
 Kompletní zadání, detailní funkční požadavky, obchodní pravidla, otevřené otázky a záznamy architektonických rozhodnutí jsou uvedeny v technické dokumentaci:
-👉 **[README.md](file:///u:/prpo_projekt/README.md)** *(informace zde neduplikujeme)*.
+👉 **[README.md](./README.md)** *(informace zde neduplikujeme)*.
 
 ---
 
@@ -33,7 +33,7 @@ Kompletní zadání, detailní funkční požadavky, obchodní pravidla, otevře
    * Žádné masivní monolity kódu najednou.
    * Postupovat po logických, snadno revidovatelných celcích (Analýza/Model → Databáze a migrace → Doménová logika a pravidla → API/Prezentace → Testy → Dockerizace).
 2. **Průběžná evidence rozhodnutí:**
-   * Jakmile se s vývojářem dohodne řešení otevřeného bodu nebo architektonický kompromis, asistent jej ihned zapíše do sekce `Rozhodnutí` v [README.md](file:///u:/prpo_projekt/README.md) ve formátu ADR.
+   * Jakmile se s vývojářem dohodne řešení otevřeného bodu nebo architektonický kompromis, asistent jej ihned zapíše do sekce `Rozhodnutí` v [README.md](./README.md) ve formátu ADR.
 3. **Konzistence a integrita kódu:**
    * Striktní dodržování třívrstvé architektury s jednosměrnými závislostmi.
    * Zachování čistoty kódu, komentářů a konvencí.

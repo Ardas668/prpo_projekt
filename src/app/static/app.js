@@ -8,7 +8,8 @@ const app = {
     students: [],
     lecturers: [],
     selectedTermId: null,
-    currentRole: 'admin',
+    currentRole: 'guest',
+    currentUser: null, // { role, user_id, full_name, email }
     currentStudentId: null,
     currentLecturerId: null,
     activeTab: 'courses'
@@ -22,7 +23,7 @@ const app = {
         this.loadStudents(),
         this.loadLecturers()
       ]);
-      this.restoreProfileState();
+      this.restoreSession();
       this.updateKPIs();
       this.populateTermDropdowns();
       this.populateStudentDropdown();
@@ -37,97 +38,103 @@ const app = {
     }
   },
 
-  restoreProfileState() {
-    const savedRole = localStorage.getItem('at_role');
-    if (savedRole && ['admin', 'lecturer', 'student'].includes(savedRole)) {
-      this.data.currentRole = savedRole;
-    }
-    const savedLecturer = parseInt(localStorage.getItem('at_lecturer_id'));
-    if (savedLecturer && this.data.lecturers.some(l => l.id === savedLecturer)) {
-      this.data.currentLecturerId = savedLecturer;
-    } else if (this.data.lecturers.length > 0) {
-      this.data.currentLecturerId = this.data.lecturers[0].id;
-    }
-
-    const savedStudent = parseInt(localStorage.getItem('at_student_id'));
-    if (savedStudent && this.data.students.some(s => s.id === savedStudent)) {
-      this.data.currentStudentId = savedStudent;
-    } else {
-      this.data.currentStudentId = null;
-    }
-
-    const roleSelect = document.getElementById('role-select');
-    if (roleSelect) roleSelect.value = this.data.currentRole;
-  },
-
-  saveProfileState() {
-    localStorage.setItem('at_role', this.data.currentRole);
-    if (this.data.currentLecturerId) {
-      localStorage.setItem('at_lecturer_id', String(this.data.currentLecturerId));
-    }
-    if (this.data.currentStudentId) {
-      localStorage.setItem('at_student_id', String(this.data.currentStudentId));
-    } else {
-      localStorage.removeItem('at_student_id');
-    }
-  },
-
-  onRoleChange() {
-    const roleSelect = document.getElementById('role-select');
-    this.data.currentRole = roleSelect.value;
-    if (this.data.currentRole === 'lecturer' && !this.data.currentLecturerId && this.data.lecturers.length > 0) {
-      this.data.currentLecturerId = this.data.lecturers[0].id;
-    }
-    this.saveProfileState();
-    this.applyRoleUI();
-  },
-
-  onProfileChange() {
-    const profileSelect = document.getElementById('profile-select');
-    const val = profileSelect.value;
-    if (this.data.currentRole === 'lecturer') {
-      this.data.currentLecturerId = val ? parseInt(val) : null;
-    } else if (this.data.currentRole === 'student') {
-      this.data.currentStudentId = val ? parseInt(val) : null;
-    }
-    this.saveProfileState();
-    this.refreshActiveTab();
-  },
-
-  populateProfileSelect() {
-    const profileSelect = document.getElementById('profile-select');
-    if (!profileSelect) return;
-
-    if (this.data.currentRole === 'admin') {
-      profileSelect.style.display = 'none';
-      profileSelect.innerHTML = '';
-      return;
-    }
-
-    profileSelect.style.display = 'inline-block';
-    if (this.data.currentRole === 'lecturer') {
-      profileSelect.innerHTML = this.data.lecturers.map(l => `
-        <option value="${l.id}">${l.first_name} ${l.last_name}</option>
-      `).join('');
-      if (this.data.currentLecturerId) {
-        profileSelect.value = String(this.data.currentLecturerId);
+  restoreSession() {
+    try {
+      const raw = localStorage.getItem('at_session');
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session && ['admin', 'lecturer', 'student'].includes(session.role)) {
+          this.setSession(session, false);
+          return;
+        }
       }
-    } else if (this.data.currentRole === 'student') {
-      profileSelect.innerHTML = `
-        <option value="">Nový zájemce (nepřihlášený)</option>
-        ${this.data.students.map(s => `
-          <option value="${s.id}">${s.first_name} ${s.last_name} (${s.email})</option>
-        `).join('')}
-      `;
-      profileSelect.value = this.data.currentStudentId ? String(this.data.currentStudentId) : '';
+    } catch (_) {
+      localStorage.removeItem('at_session');
     }
+    this.data.currentRole = 'guest';
+    this.data.currentUser = null;
+    this.data.currentStudentId = null;
+    this.data.currentLecturerId = null;
+  },
+
+  setSession(session, persist = true) {
+    this.data.currentUser = session;
+    this.data.currentRole = session ? session.role : 'guest';
+    this.data.currentStudentId = session && session.role === 'student' ? session.user_id : null;
+    this.data.currentLecturerId = session && session.role === 'lecturer' ? session.user_id : null;
+    if (persist) {
+      if (session) {
+        localStorage.setItem('at_session', JSON.stringify(session));
+      } else {
+        localStorage.removeItem('at_session');
+      }
+    }
+  },
+
+  openLoginModal() {
+    const form = document.getElementById('form-login');
+    if (form) form.reset();
+    const errEl = document.getElementById('login-error');
+    if (errEl) {
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+    }
+    document.getElementById('modal-login').classList.add('open');
+  },
+
+  async submitLogin(event) {
+    event.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.style.display = 'none';
+
+    try {
+      const res = await this.fetchJson(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      this.setSession(res, true);
+      this.closeModal('modal-login');
+      const roleLabels = { admin: 'Administrátor', lecturer: 'Lektor', student: 'Student' };
+      this.showToast(`Přihlášení úspěšné: ${res.full_name} (${roleLabels[res.role] || res.role}).`, 'success');
+      this.applyRoleUI();
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    }
+  },
+
+  logout() {
+    this.setSession(null, true);
+    this.showToast('Byli jste úspěšně odhlášeni.', 'info');
+    this.applyRoleUI();
   },
 
   applyRoleUI() {
     const role = this.data.currentRole;
-    this.populateProfileSelect();
+    const user = this.data.currentUser;
 
-    // Navigace dle role
+    // Hlavička: stav přihlášení
+    const sessionBar = document.getElementById('user-session-bar');
+    const loginBtn = document.getElementById('btn-open-login');
+    const roleBadge = document.getElementById('user-role-badge');
+    const userName = document.getElementById('user-full-name');
+    const roleLabels = { admin: 'Administrátor', lecturer: 'Lektor', student: 'Student' };
+
+    if (user) {
+      if (sessionBar) sessionBar.style.display = 'flex';
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (roleBadge) roleBadge.textContent = roleLabels[role] || role;
+      if (userName) userName.textContent = user.full_name;
+    } else {
+      if (sessionBar) sessionBar.style.display = 'none';
+      if (loginBtn) loginBtn.style.display = '';
+    }
+
+    // Navigace dle role (přísné oddělení oprávnění)
     let allowedTabs = [];
     document.querySelectorAll('.nav-tab').forEach(tab => {
       const roles = (tab.getAttribute('data-roles') || '').split(',');
@@ -148,7 +155,7 @@ const app = {
         quickBtn.style.display = 'none';
       } else {
         quickBtn.style.display = '';
-        quickBtn.textContent = role === 'student' ? 'Přihlásit se na kurz' : 'Nová přihláška';
+        quickBtn.textContent = role === 'admin' ? 'Nová přihláška' : 'Přihlásit se na kurz';
       }
     }
 
@@ -510,15 +517,15 @@ const app = {
       document.getElementById('reg-term-id').value = termId;
     }
 
-    const isStudent = this.data.currentRole === 'student';
-    document.getElementById('reg-admin-student-block').style.display = isStudent ? 'none' : 'block';
-    document.getElementById('reg-admin-override-block').style.display = isStudent ? 'none' : 'block';
-    document.getElementById('reg-self-student-block').style.display = isStudent ? 'block' : 'none';
+    const isSelfMode = this.data.currentRole !== 'admin';
+    document.getElementById('reg-admin-student-block').style.display = isSelfMode ? 'none' : 'block';
+    document.getElementById('reg-admin-override-block').style.display = isSelfMode ? 'none' : 'block';
+    document.getElementById('reg-self-student-block').style.display = isSelfMode ? 'block' : 'none';
 
-    document.getElementById('modal-register-title').textContent = isStudent
+    document.getElementById('modal-register-title').textContent = isSelfMode
       ? 'Přihláška na termín kurzu'
       : 'Zápis studenta na termín kurzu';
-    document.getElementById('btn-submit-register').textContent = isStudent
+    document.getElementById('btn-submit-register').textContent = isSelfMode
       ? 'Odeslat přihlášku'
       : 'Zapsat přihlášku';
 
@@ -528,12 +535,12 @@ const app = {
     const emInput = document.getElementById('self-email');
     const phInput = document.getElementById('self-phone');
 
-    studentSelect.required = !isStudent;
-    fnInput.required = isStudent;
-    lnInput.required = isStudent;
-    emInput.required = isStudent;
+    studentSelect.required = !isSelfMode;
+    fnInput.required = isSelfMode;
+    lnInput.required = isSelfMode;
+    emInput.required = isSelfMode;
 
-    if (isStudent) {
+    if (isSelfMode) {
       const currentStudent = this.data.students.find(s => s.id === this.data.currentStudentId);
       if (currentStudent) {
         fnInput.value = currentStudent.first_name || '';
@@ -561,7 +568,7 @@ const app = {
     event.preventDefault();
     const termId = parseInt(document.getElementById('reg-term-id').value);
 
-    if (this.data.currentRole === 'student') {
+    if (this.data.currentRole !== 'admin') {
       const payload = {
         first_name: document.getElementById('self-first-name').value.trim(),
         last_name: document.getElementById('self-last-name').value.trim(),
@@ -584,13 +591,17 @@ const app = {
 
         this.closeModal('modal-register');
         await Promise.all([this.loadStudents(), this.loadTerms()]);
-        this.data.currentStudentId = res.student_id;
-        this.saveProfileState();
-        this.populateProfileSelect();
+        this.setSession({
+          role: 'student',
+          user_id: res.student_id,
+          full_name: res.student_name || `${payload.first_name} ${payload.last_name}`,
+          email: res.student_email || payload.email
+        }, true);
         this.populateTermDropdowns();
         this.populateStudentDropdown();
         this.updateKPIs();
-        this.switchTab('my_courses');
+        this.data.activeTab = 'my_courses';
+        this.applyRoleUI();
       } catch (err) {
         this.showToast('Chyba přihlášení: ' + err.message, 'error');
       }

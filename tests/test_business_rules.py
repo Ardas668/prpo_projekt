@@ -8,6 +8,9 @@ from fastapi import HTTPException
 from src.app.core.database import Base
 from src.app.models import Course, Term, Lecturer, TermLecturer, Student, Registration, RegistrationStatus, Attendance, Certificate
 from src.app.schemas.registration import RegistrationCreate, SelfRegistrationCreate
+from src.app.schemas.auth import LoginRequest
+from src.app.api.v1.endpoints.auth import login as auth_login
+from src.app.core.config import settings
 from src.app.schemas.certificate import CertificateIssueRequest
 from src.app.schemas.attendance import AttendanceBulkCreate, AttendanceRecord
 from src.app.schemas.term import TermCreate, TermLecturerAssign
@@ -368,3 +371,50 @@ def test_rule_student_self_registration_and_history(db_session, sample_data):
     history = RegistrationService.get_by_student(db_session, reg1.student_id)
     assert len(history) == 1
     assert history[0].id == reg1.id
+
+
+def test_auth_login_roles_and_rejection(db_session, sample_data):
+    """
+    Ověření jednoduchého přihlašování podle rolí (ADR-008):
+    - Admin, Lektor a Student dostanou svou roli a profil.
+    - Neplatné heslo nebo neznámý e-mail vrátí HTTP 401.
+    """
+    lecturer = Lecturer(
+        first_name="Petr",
+        last_name="Novák",
+        email="petr.novak@akademietrutnov.cz",
+    )
+    db_session.add(lecturer)
+    db_session.commit()
+
+    # Admin
+    res_admin = auth_login(
+        LoginRequest(email=settings.ADMIN_EMAIL, password=settings.ADMIN_PASSWORD),
+        db=db_session,
+    )
+    assert res_admin.role == "admin"
+
+    # Lektor
+    res_lec = auth_login(
+        LoginRequest(email=lecturer.email, password=settings.LECTURER_DEMO_PASSWORD),
+        db=db_session,
+    )
+    assert res_lec.role == "lecturer"
+    assert res_lec.user_id == lecturer.id
+
+    # Student
+    student = sample_data["students"][0]
+    res_stu = auth_login(
+        LoginRequest(email=student.email, password=settings.STUDENT_DEMO_PASSWORD),
+        db=db_session,
+    )
+    assert res_stu.role == "student"
+    assert res_stu.user_id == student.id
+
+    # Špatné heslo -> 401
+    with pytest.raises(HTTPException) as exc_info:
+        auth_login(
+            LoginRequest(email=settings.ADMIN_EMAIL, password="spatne-heslo"),
+            db=db_session,
+        )
+    assert exc_info.value.status_code == 401
