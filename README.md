@@ -153,5 +153,77 @@ Tato sekce průběžně zaznamenává všechna klíčová věcná a architektoni
 
 ---
 
-*(Další rozhodnutí ADR-006 až ADR-00X budou doplňována průběžně po vzájemném odsouhlasení s vývojářem.)*
+#### ADR-006: Rozšíření webové správy a vizuální styl vzdělávacího centra
+* **Datum:** 2026-11-23
+* **Stav:** Schváleno
+* **Kontext:** Původní technologický tmavý vzhled neodpovídal charakteru regionálního vzdělávacího centra a v rozhraní chyběla možnost zakládat nové termíny s lektory a studenty přímo z webu.
+* **Rozhodnutí:**
+  1. Zvolit přívětivější, přístupný styl inspirovaný krkonošským regionem (světlý podklad, smrková zeleň `#0f766e`, jemné jantarové akcenty).
+  2. Doplnit formuláře pro zakládání termínů s dynamickým přiřazením lektorů a rozpadem hodin, modal pro rychlé vytvoření studenta a export reportů do formátu CSV s UTF-8 BOM pro MS Excel.
+* **Důsledky:** Plná soběstačnost webového rozhraní pro správu centra, přehledné manažerské výkazy.
+
+---
+
+## 8. Uživatelská příručka a pokyny pro spuštění
+
+Systém je plně kontejnerizován a připraven pro okamžité spuštění a hodnocení.
+
+### 8.1 Spuštění aplikace v Dockeru (doporučeno)
+
+Pro spuštění celého systému (PostgreSQL databáze + migrace schématu + backend + webové UI) stačí jediný příkaz v kořenovém adresáři:
+
+```bash
+docker compose up --build -d
+```
+
+Po spuštění jsou k dispozici tyto adresy:
+* **Webový Dashboard Akademie Trutnov:** [http://localhost:8000/](http://localhost:8000/)
+* **Interaktivní API dokumentace (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Alternativní dokumentace (ReDoc):** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+Zastavení aplikace:
+```bash
+docker compose down
+```
+
+### 8.2 Spuštění automatizovaných testů
+
+Všechna klíčová obchodní pravidla jsou plně pokryta automatizovanými testy (SQLite in-memory, běh v řádu zlomků sekundy):
+
+**Spuštění v běžícím Docker kontejneru:**
+```bash
+docker compose exec app pytest
+```
+
+**Lokální spuštění přes Python virtuální prostředí:**
+```bash
+.\.venv\Scripts\pytest -v
+```
+
+### 8.3 Spuštění uceleného konzolového dema
+
+Pro rychlé automatické předvedení všech 8 kroků životního cyklu kurzu a ověření obchodních pravidel:
+
+```bash
+python demo.py
+```
+*(Skript běží v izolované in-memory databázi, takže neovlivní data v běžícím PostgreSQL kontejneru.)*
+
+### 8.4 Přehled ověřených obchodních pravidel a mapování v kódu
+
+| Pravidlo | Popis chování systému | Kde je implementováno | Automatizovaný test |
+|---|---|---|---|
+| **Striktní limit kapacity** | Kapacitu termínu nelze překročit ani omylem. | `RegistrationService.register_student` | `test_rule_capacity_and_fifo_queue` |
+| **FIFO pořadník náhradníků** | Po naplnění kapacity je zájemce zařazen na konec fronty (#1, #2...). | `RegistrationService.register_student` | `test_rule_capacity_and_fifo_queue` |
+| **Automatický posun z pořadníku** | Při odhlášení zapsaného studenta se první náhradník automaticky posune na potvrzené místo. | `RegistrationService.cancel_registration` | `test_rule_cancellation_audit_and_auto_promote` |
+| **Auditní stopa přihlášek** | Zrušená přihláška se fyzicky nemaže (`CANCELLED`, čas zrušení). | `RegistrationService.cancel_registration` | `test_rule_cancellation_audit_and_auto_promote` |
+| **Zákaz spekulativního souběhu** | Student nesmí mít 2 aktivní přihlášky na stejný kurz současně. | `RegistrationService.register_student` | `test_rule_no_concurrent_registration_same_course` |
+| **Zápis po zahájení termínu** | Standardně zakázán (400); povolen pouze administrátorovi s povinným důvodem. | `RegistrationService.register_student` | `test_rule_late_registration_admin_override` |
+| **Časová kolize lektorů** | Lektor nemůže učit 2 termíny, které se časově překrývají. | `TermService.create` | `test_rule_lecturer_schedule_conflict` |
+| **Podmínka osvědčení** | Vyžaduje $\ge 70\ \%$ docházky a formální schválení lektorem. | `CertificateService.issue_certificate` | `test_rule_certificate_issuing_and_immutability` |
+| **Neměnnost osvědčení** | Číslo je unikátní (`TRU-YYYY-XXXXX`), jednou vydané osvědčení nelze přepsat. | `CertificateService.issue_certificate` | `test_rule_certificate_issuing_and_immutability` |
+
+---
+
+*(Dokumentace semestrálního projektu Pokročilé programování – FIM UHK)*
 
