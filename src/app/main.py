@@ -16,8 +16,7 @@ from src.app.api.v1.endpoints import (
     reports
 )
 
-# Inicializace tabulek pro DEMO běh (v produkci spravováno migracemi Alembic)
-Base.metadata.create_all(bind=engine)
+# Inicializace schématu je plně řízena verzovanými migracemi Alembic (alembic upgrade head)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
